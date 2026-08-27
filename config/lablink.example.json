@@ -1,8 +1,14 @@
 {
   "transport": {
+    "tcp_default_host": "127.0.0.1",
+    "tcp_default_port": 5025,
     "tcp_default_timeout_sec": 5.0,
     "tcp_connect_retry_attempts": 3,
+    "serial_default_port": "COM1",
     "serial_default_baudrate": 9600,
+    "serial_default_bytesize": 8,
+    "serial_default_parity": "N",
+    "serial_default_stopbits": 1.0,
     "serial_default_timeout_sec": 2.0,
     "ethernet_interface": "eth0"
   },

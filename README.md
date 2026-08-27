@@ -1,6 +1,6 @@
 # LabLink: Network & Instrument Test Automation Platform
 
-LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control and automated test execution alongside a C#/.NET service layer for test management.
+LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, and automated test execution alongside a C#/.NET service layer for test management.
 
 ---
 
@@ -8,18 +8,42 @@ LabLink is an extensible, multi-tier network and laboratory instrument test auto
 
 LabLink employs a decoupled multi-tiered architecture:
 
-* **Python Layer (`python/`):** Primary engine for test automation, physical/network transport handling, SCPI protocol parsing, and hardware device control.
+* **Python Layer (`python/`):** Primary engine for test automation, physical/network transport handling (TCP/IP, Serial RS-232, Mock), SCPI protocol parsing, VISA-style resource management, instrument abstractions, optical equipment simulators, and hardware device control.
 * **C# / .NET Layer (`dotnet/LabLink.Api`):** Service layer providing an ASP.NET Core Web API foundation for test management, run orchestration, and reporting.
 * **Persistence Layer (Planned):** PostgreSQL database integration for historical test logs, device telemetry, and run results.
 * **Infrastructure (Planned):** Docker-based integration environments and Jenkins CI/CD automation pipelines.
+
+```
+                  +-----------------------------------+
+                  |      C# / ASP.NET Core API        |
+                  |     (Test Management & API)       |
+                  +-----------------+-----------------+
+                                    |
+                                    v
+                  +-----------------------------------+
+                  |     Python Automation Engine      |
+                  |   (Instrument Control & pytest)   |
+                  +-----------------+-----------------+
+                                    |
+        +---------------------------+---------------------------+
+        |                           |                           |
+        v                           v                           v
++---------------+           +---------------+           +---------------+
+|  TCP/IP /     |           |   SCPI /      |           |   Layer-2     |
+| Serial RS232  |           |  Instrument   |           |   Ethernet    |
+| Transport     |           |  Protocols    |           |   Testing     |
++---------------+           +---------------+           +---------------+
+```
 
 ---
 
 ## Technology Stack
 
-* **Automation & Drivers:** Python 3.10+
+* **Automation & Drivers:** Python 3.11
 * **Test Framework:** pytest
 * **Service API:** C# / .NET 8.0 ASP.NET Core
+* **Networking & Protocols:** TCP/IP Sockets, RS-232 Serial, SCPI (IEEE 488.2), VISA-style abstractions
+* **Instruments & Simulators:** Optical Power Meter, Optical Switch, Optical Oscilloscope, Network Switch Control
 * **Persistence (Planned):** PostgreSQL
 * **CI/CD & Containers (Planned):** Docker, Jenkins
 
@@ -31,16 +55,16 @@ LabLink employs a decoupled multi-tiered architecture:
 LabLink/
 ├── python/
 │   ├── lablink/
-│   │   ├── config/          # Configuration loading & settings
+│   │   ├── config/          # Environment-aware settings & config management
 │   │   ├── logging/         # Credential-redacting logging framework
-│   │   ├── instruments/     # Instrument driver extension points
-│   │   ├── transport/       # Transport layer extension points
-│   │   ├── protocols/       # SCPI and protocol extension points
-│   │   └── devices/         # Device abstraction extension points
-│   ├── tests/
-│   │   ├── unit/            # Unit test suite
-│   │   └── integration/     # Integration test suite
-│   └── pyproject.toml       # Python package configuration & dependencies
+│   │   ├── transport/       # BaseTransport, TCPTransport, SerialTransport, MockTransport
+│   │   ├── protocols/       # SCPIProtocol, VISAResource, VISAResourceManager
+│   │   ├── instruments/     # BaseInstrument, OpticalPowerMeter, OpticalSwitch, OpticalOscilloscope
+│   │   ├── devices/         # NetworkSwitch device control abstraction
+│   │   └── simulators/      # BaseInstrumentSimulator, OpticalPowerMeterSimulator, OpticalSwitchSimulator, OpticalOscilloscopeSimulator, NetworkSwitchSimulator
+│   └── tests/
+│       ├── unit/            # Unit tests for transports, SCPI, VISA, instruments, simulators
+│       └── integration/     # Local TCP socket integration tests against local simulators
 │
 ├── dotnet/
 │   └── LabLink.Api/         # ASP.NET Core Web API foundation
@@ -48,35 +72,42 @@ LabLink/
 ├── config/                  # Safe configuration templates (.json, .env)
 ├── docs/                    # Architectural & design documentation
 ├── scripts/                 # Development lifecycle scripts (setup, test, clean)
-├── simulators/              # Instrument simulators (Milestone v0.3)
-├── ethernet/                # Layer-2 Ethernet test components (Milestone v0.2)
+├── ethernet/                # Layer-2 Ethernet test components (Milestone v0.5)
 ├── docker/                  # Docker containerization (Milestone v0.6)
-├── jenkins/                 # Jenkins CI/CD pipelines (Milestone v0.6)
-└── README.md
+└── jenkins/                 # Jenkins CI/CD pipelines (Milestone v0.6)
 ```
 
 ---
 
 ## Current Milestone Status
 
-**Current Milestone:** `v0.1: Repository Foundation & Core Infrastructure`
+**Current Milestone:** `v0.3: Instruments & Optical Simulation`
 
-### Implemented Functionality (Milestone v0.1)
-* [x] Foundational repository structure & Git hygiene (`.gitignore`)
-* [x] Python package structure & `pyproject.toml` configuration
-* [x] Modular configuration management system (`lablink.config`) with secret masking
-* [x] Centralized logging framework (`lablink.logging`) with credential redaction
-* [x] Pytest infrastructure & foundational package import/configuration unit tests
-* [x] Minimal ASP.NET Core 8 Web API foundation (`LabLink.Api`) with health endpoint (`/api/v1/health`)
-* [x] Development helper scripts (`scripts/setup.sh`, `scripts/run_tests.sh`, `scripts/clean.sh`)
-* [x] Architecture documentation (`docs/architecture.md`)
+### Implemented Functionality
+* [x] **Repository Foundation:** Python package, `.gitignore`, pytest setup, C# ASP.NET Core health service.
+* [x] **Transport Architecture:** Abstract `BaseTransport` contract with state management and timeouts.
+* [x] **TCP/IP Transport:** Real client `TCPTransport` socket implementation using standard library networking.
+* [x] **RS-232 / Serial Transport:** `SerialTransport` abstraction supporting baudrate/parity/stopbits and virtual backend fallback.
+* [x] **Mock Transport:** Deterministic `MockTransport` with request-response matching, read queues, custom handlers, and timeout/error injection.
+* [x] **SCPI Protocol Layer:** `SCPIProtocol` supporting IEEE 488.2 common commands (`*IDN?`, `*RST`, `*CLS`, `SYST:ERR?`) and response parsing helpers.
+* [x] **VISA-Style Resource Abstraction:** `VISAResourceManager` and `VISAResource` parsing descriptors (`TCPIP`, `ASRL`, `MOCK`) without external NI-VISA C-binary dependencies.
+* [x] **Instrument Abstraction Layer:** `BaseInstrument` composing transport and protocol objects via dependency injection.
+* [x] **Optical Power Meter:** `OpticalPowerMeter` supporting wavelength configuration (`CONF:WAVELENGTH`), unit selection (`CONF:UNIT`), and power measurement (`MEAS:POW?`).
+* [x] **Optical Switch:** `OpticalSwitch` supporting channel routing (`ROUTE:SET`), route queries (`ROUTE?`), and channel count inspection.
+* [x] **Optical Oscilloscope:** `OpticalOscilloscope` supporting timebase scale (`TIMEBASE:SCALE`), channel scale (`CHANNEL:SCALE`), acquisition state (`ACQUIRE:STATE`), and structured `WaveformData` acquisition.
+* [x] **Network Switch Device Abstraction:** `NetworkSwitch` supporting port state management (`enable_port`, `disable_port`, `get_port_state`, `get_all_port_states`).
+* [x] **Software Simulators Layer:** Thread-safe local TCP SCPI simulators (`OpticalPowerMeterSimulator`, `OpticalSwitchSimulator`, `OpticalOscilloscopeSimulator`, `NetworkSwitchSimulator`) listening on `127.0.0.1` with FIFO error queue support (`SYST:ERR?`).
+* [x] **Error Model:** Hierarchical domain exceptions (`TransportConnectionError`, `TransportTimeoutError`, `TransportIOError`, `SCPIError`, `VISAError`, `InvalidResponseError`).
+* [x] **Automated Tests:** Hardware-free unit tests and end-to-end local TCP integration tests.
 
-### Planned Functionality (Upcoming Milestones)
-* [ ] **Milestone v0.2:** TCP/IP socket, RS-232 serial, SCPI protocol parser, and Layer-2 Ethernet transport drivers
-* [ ] **Milestone v0.3:** Hardware instrument abstractions & virtual software simulators
-* [ ] **Milestone v0.4:** PostgreSQL database migration schema & persistence layer
-* [ ] **Milestone v0.5:** ASP.NET Core test-management REST API endpoints
-* [ ] **Milestone v0.6:** Docker containerization & Jenkins CI/CD automation
+### Explicitly Deferred / Planned Functionality
+* [ ] Physical optical equipment validation (No physical optical hardware attached)
+* [ ] NI-VISA native binary C-driver bindings (VISA-style software abstraction implemented)
+* [ ] IXIA hardware integration (Deferred)
+* [ ] Layer-2 Ethernet raw packet generation, VLAN forwarding & traffic generator — *Milestone v0.5*
+* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.4*
+* [ ] ASP.NET Core test management REST API endpoints — *Milestone v0.5*
+* [ ] Docker environment & Jenkins CI/CD automation — *Milestone v0.6*
 
 ---
 
@@ -99,7 +130,7 @@ LabLink/
 
 ## How to Run the Pytest Infrastructure
 
-Run tests using the project test script or directly via `pytest`:
+Run the test suite using the project test script or directly via `pytest`:
 
 ```bash
 # Option 1: Using the provided script
@@ -107,10 +138,10 @@ Run tests using the project test script or directly via `pytest`:
 
 # Option 2: Running pytest directly within the python directory
 cd python
-pytest
+pytest -v
 ```
 
-The current foundational tests verify package initialization, version metadata, configuration loading, secret masking, and logging behavior.
+The test suite includes unit tests for TCP, Serial, Mock transports, SCPI protocol formatting, VISA descriptors, instruments, device abstractions, software simulators, and local in-process TCP socket integration tests.
 
 ---
 
@@ -125,7 +156,7 @@ The current foundational tests verify package initialization, version metadata, 
    ```bash
    dotnet run
    ```
-4. Access the health status endpoint at `http://localhost:5000/api/v1/health` (or configured port).
+4. Access the health status endpoint at `http://localhost:5000/api/v1/health`.
 
 ---
 

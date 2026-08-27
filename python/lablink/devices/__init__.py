@@ -1,8 +1,11 @@
 """
-LabLink Device Abstractions Package.
+LabLink Device Abstraction Package.
 
-Extensibility point for high-level composite device models and virtual
-test target abstractions.
-
-Concrete device models will be added in subsequent milestones.
+Provides device-level control abstractions for network hardware.
 """
+
+from lablink.devices.network_switch import NetworkSwitch
+
+__all__ = [
+    "NetworkSwitch",
+]
