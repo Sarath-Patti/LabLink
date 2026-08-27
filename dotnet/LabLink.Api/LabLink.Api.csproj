@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>LabLink.Api</RootNamespace>
+    <AssemblyName>LabLink.Api</AssemblyName>
+    <Version>0.1.0</Version>
+    <Description>LabLink Test Management &amp; Service Layer API Foundation</Description>
+  </PropertyGroup>
+
+</Project>

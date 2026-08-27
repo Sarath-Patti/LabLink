@@ -1,0 +1,33 @@
+{
+  "transport": {
+    "tcp_default_timeout_sec": 5.0,
+    "tcp_connect_retry_attempts": 3,
+    "serial_default_baudrate": 9600,
+    "serial_default_timeout_sec": 2.0,
+    "ethernet_interface": "eth0"
+  },
+  "instruments": {
+    "scpi_default_read_termination": "\n",
+    "scpi_default_write_termination": "\n",
+    "scpi_timeout_ms": 5000,
+    "instrument_retry_count": 2
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "lablink_db",
+    "user": "lablink_user",
+    "password": "",
+    "max_connections": 10
+  },
+  "simulators": {
+    "enabled": false,
+    "tcp_simulator_port": 9001,
+    "scpi_sim_response_delay_ms": 10.0
+  },
+  "execution": {
+    "environment": "development",
+    "log_level": "INFO",
+    "max_parallel_tests": 1
+  }
+}
