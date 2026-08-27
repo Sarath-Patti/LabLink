@@ -1,0 +1,38 @@
+[
+  {
+    "test_name": "automated_optical_test_bench_regression",
+    "category": "regression",
+    "status": "PASS",
+    "duration_ms": 12.5,
+    "instrument": "OpticalPowerMeter",
+    "measurement_name": "optical_power",
+    "expected": -10.0,
+    "actual": -10.0,
+    "unit": "dBm",
+    "timestamp": "2026-08-27T18:45:24.488767+00:00"
+  },
+  {
+    "test_name": "automated_optical_test_bench_regression",
+    "category": "regression",
+    "status": "PASS",
+    "duration_ms": 12.5,
+    "instrument": "OpticalPowerMeter",
+    "measurement_name": "optical_power",
+    "expected": -10.0,
+    "actual": -10.0,
+    "unit": "dBm",
+    "timestamp": "2026-08-27T18:45:24.489188+00:00"
+  },
+  {
+    "test_name": "automated_optical_test_bench_regression",
+    "category": "regression",
+    "status": "PASS",
+    "duration_ms": 12.5,
+    "instrument": "OpticalPowerMeter",
+    "measurement_name": "optical_power",
+    "expected": -10.0,
+    "actual": -10.0,
+    "unit": "dBm",
+    "timestamp": "2026-08-27T18:45:24.489586+00:00"
+  }
+]

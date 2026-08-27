@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lablink"
-version = "0.1.0"
+version = "0.4.0"
 description = "LabLink test automation and instrument integration platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -47,6 +47,14 @@ pythonpath = [
 ]
 filterwarnings = [
     "ignore::DeprecationWarning"
+]
+markers = [
+    "functional: Functional test cases for instruments and devices",
+    "regression: Critical regression test workflows",
+    "negative: Negative error handling and invalid input tests",
+    "performance: Lightweight SCPI query and measurement latency tests",
+    "instrument: Tests targeting instrument drivers",
+    "simulator: Tests targeting software simulators",
 ]
 
 [tool.black]
