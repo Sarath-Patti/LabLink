@@ -1,8 +1,15 @@
 """
 LabLink Messaging Protocols Package.
 
-Extensibility point for messaging and command formats (e.g., SCPI command
-parsing and serialization, raw binary frames).
-
-Protocol implementations will be added in subsequent milestones.
+Provides SCPI protocol parsing, IEEE 488.2 common commands, and VISA-style
+instrument resource management.
 """
+
+from lablink.protocols.scpi import SCPIProtocol
+from lablink.protocols.visa import VISAResource, VISAResourceManager
+
+__all__ = [
+    "SCPIProtocol",
+    "VISAResource",
+    "VISAResourceManager",
+]

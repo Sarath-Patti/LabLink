@@ -1,8 +1,18 @@
 """
 LabLink Transport Communication Package.
 
-Extensibility point for physical and network transport layers (TCP/IP sockets,
-RS-232 serial streams, and Layer-2 Ethernet framing).
-
-Concrete transport implementations will be built in subsequent milestones.
+Provides communication abstractions and transport implementations for
+TCP/IP sockets, RS-232 serial ports, and in-memory mock transports.
 """
+
+from lablink.transport.base import BaseTransport
+from lablink.transport.mock import MockTransport
+from lablink.transport.serial import SerialTransport
+from lablink.transport.tcp import TCPTransport
+
+__all__ = [
+    "BaseTransport",
+    "MockTransport",
+    "SerialTransport",
+    "TCPTransport",
+]

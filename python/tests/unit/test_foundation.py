@@ -7,6 +7,7 @@ and logging system setup.
 
 import logging
 import os
+
 import lablink
 from lablink.config import (
     DatabaseConfig,
@@ -20,8 +21,8 @@ from lablink.logging import get_logger, setup_logging
 
 
 def test_package_import_and_version() -> None:
-    """Verify that the lablink package imports cleanly and exposes version 0.1.0."""
-    assert lablink.__version__ == "0.1.0"
+    """Verify that the lablink package imports cleanly and exposes version 0.2.0."""
+    assert lablink.__version__ == "0.2.0"
     assert hasattr(lablink, "__author__")
 
 

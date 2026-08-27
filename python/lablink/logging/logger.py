@@ -9,7 +9,7 @@ of passwords, secrets, and API tokens.
 import logging
 import re
 import sys
-from typing import Optional, TextIO
+from typing import ClassVar, TextIO
 
 
 class CredentialRedactingFormatter(logging.Formatter):
@@ -18,12 +18,24 @@ class CredentialRedactingFormatter(logging.Formatter):
     from log output to maintain security hygiene.
     """
 
-    PATTERNS = [
-        (re.compile(r"(password['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE), r"\1***REDACTED***"),
-        (re.compile(r"(token['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE), r"\1***REDACTED***"),
-        (re.compile(r"(secret['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE), r"\1***REDACTED***"),
-        (re.compile(r"(api_key['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE), r"\1***REDACTED***"),
-    ]
+    PATTERNS: ClassVar[tuple[tuple[re.Pattern[str], str], ...]] = (
+        (
+            re.compile(r"(password['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE),
+            r"\1***REDACTED***",
+        ),
+        (
+            re.compile(r"(token['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE),
+            r"\1***REDACTED***",
+        ),
+        (
+            re.compile(r"(secret['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE),
+            r"\1***REDACTED***",
+        ),
+        (
+            re.compile(r"(api_key['\"]?\s*[:=]\s*['\"]?)([^'\";\s]+)", re.IGNORECASE),
+            r"\1***REDACTED***",
+        ),
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         formatted = super().format(record)
@@ -38,9 +50,9 @@ DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 def setup_logging(
     log_level: str = "INFO",
-    log_format: Optional[str] = None,
-    date_format: Optional[str] = None,
-    stream: Optional[TextIO] = None,
+    log_format: str | None = None,
+    date_format: str | None = None,
+    stream: TextIO | None = None,
 ) -> logging.Logger:
     """
     Configure the root logger for the LabLink application.
