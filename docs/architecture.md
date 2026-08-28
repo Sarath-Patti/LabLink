@@ -5,12 +5,12 @@
 LabLink is a multi-tier network and laboratory instrument test automation platform designed with strict separation of concerns across two primary technical stacks:
 
 1. **Python Layer (`python/`)**
-   * **Role:** Primary test automation engine, instrument integration, protocol parsing, hardware transport execution, Layer-2 Ethernet validation, software traffic generation, and pytest automation framework.
+   * **Role:** Primary test automation engine, instrument integration, protocol parsing, hardware transport execution, Layer-2 Ethernet validation, software traffic generation, standard-library HTTP API client (`LabLinkAPIClient`), and pytest automation framework.
    * **Responsibility:** Executes SCPI commands, manages TCP/IP, RS-232 serial, and Layer-2 Ethernet streams, drives instrument drivers, software simulators, software traffic engines, and runs pytest automation workflows.
 
-2. **C#/.NET Layer (`dotnet/LabLink.Api`)**
+2. **C#/.NET Layer (`dotnet/LabLink.Api` & `dotnet/LabLink.Api.Tests`)**
    * **Role:** Test management, orchestration, and external Web API platform.
-   * **Responsibility:** Manages test run schedules, exposes REST endpoints for test status, aggregates telemetry, and coordinates persistence via PostgreSQL.
+   * **Responsibility:** Manages test case definitions, test run lifecycles, test result ingestion, device/instrument metadata, exposes REST endpoints (`/api/v1/`), provides OpenAPI/Swagger documentation, and maintains in-memory session persistence.
 
 ```
                   +-----------------------------------+
@@ -36,11 +36,36 @@ LabLink is a multi-tier network and laboratory instrument test automation platfo
 
 ---
 
+## Milestone v0.6 C#/.NET Service Layer Architecture
+
+### 1. Layered Architecture & Component Separation
+The `LabLink.Api` project enforces clean separation between HTTP controllers, application services, domain entities, and repository abstractions:
+
+$$\text{Python pytest / HTTP Client} \longrightarrow \text{REST Controllers} \longrightarrow \text{Application Services} \longrightarrow \text{Domain Models} \longrightarrow \text{In-Memory Repositories}$$
+
+* **REST Controllers (`Controllers/`)**: Thin API endpoints validating model state and delegating business operations to services (`HealthController`, `TestCasesController`, `TestRunsController`, `TestResultsController`, `DevicesController`, `InstrumentsController`).
+* **Application Services (`Services/`)**: Enforce business validation, domain rules, state transitions, and result metrics aggregation (`TestCaseService`, `TestRunService`, `TestResultService`, `DeviceService`, `InstrumentService`).
+* **Domain Models (`Domain/Models/` & `Domain/Enums/`)**: Strongly typed domain entities (`TestCase`, `TestRun`, `TestResult`, `Device`, `Instrument`) and enums (`TestStatus`, `TestRunStatus`, `DeviceType`, `DeviceProtocol`).
+* **Repository Abstractions (`Repositories/`)**: Interface contracts (`ITestCaseRepository`, `ITestRunRepository`, `ITestResultRepository`, `IDeviceRepository`, `IInstrumentRepository`) backed by thread-safe `ConcurrentDictionary` in-memory implementations.
+* **Error Handling Middleware (`Middleware/ApiExceptionMiddleware.cs`)**: Global exception interceptor mapping domain exceptions (`EntityNotFoundException`, `ValidationException`, `InvalidStateTransitionException`, `DuplicateEntityException`) to structured JSON HTTP status responses (`400`, `404`, `409`, `500`).
+
+### 2. Test-Run Lifecycle State Machine
+```
+Created  ───>  Running  ───>  Completed
+   │             │
+   └───> Cancelled <┘
+```
+* Invalid state transitions (e.g. `Completed` $\rightarrow$ `Running` or `Created` $\rightarrow$ `Completed` without ingestion) are blocked and produce `409 Conflict` error responses.
+* Completing a test run triggers automatic calculation of `TotalTests`, `PassedTests`, `FailedTests`, `SkippedTests`, and `CompletedAt` from ingested `TestResult` entities.
+
+### 3. Persistence Boundary & PostgreSQL Deferral
+Milestone v0.6 deliberately uses thread-safe in-memory repositories to ensure zero external infrastructure dependencies during API development and automated testing. PostgreSQL database persistence, Entity Framework Core mappings, and database migrations are strictly deferred to **Milestone v0.7**.
+
+---
+
 ## Milestone v0.5 Layer-2 Ethernet & Network Validation Architecture
 
 ### 1. Layer-2 Subsystem Composition (`lablink.network`)
-The Layer-2 network validation subsystem provides typed abstractions for Ethernet MAC framing, 802.1Q VLAN tagging, software traffic generation, and traffic sink sequence tracking:
-
 $$\text{TrafficGenerator} \longrightarrow \text{EthernetFrame (MACAddress + VLANHeader)} \longrightarrow \text{TrafficSink} \longrightarrow \text{TrafficStatistics}$$
 
 * **`MACAddress`**: Validated 48-bit MAC address value object supporting colon/hyphen/raw hex formats, byte serialization, and broadcast/multicast classification.
@@ -67,9 +92,6 @@ pytest Execution Command
    └──> pytest -m l2                    (-m l2)
 ```
 
-### 2. Fixture Lifecycle Architecture (`python/tests/conftest.py`)
-$$\text{Simulator Fixture (start / yield / stop)} \longrightarrow \text{TCPTransport (connect)} \longrightarrow \text{Instrument Driver} \longrightarrow \text{Test Execution} \longrightarrow \text{Teardown (disconnect)}$$
-
 ---
 
 ## Milestone v0.3 Instrument & Simulator Subsystems
@@ -84,7 +106,7 @@ $$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longri
 
 ---
 
-## Implementation Status (Milestone v0.5)
+## Implementation Status (Milestone v0.6)
 
 ### Implemented Functionality
 * [x] Abstract transport interface contract (`BaseTransport`) & client transports (`TCPTransport`, `SerialTransport`, `MockTransport`)
@@ -96,15 +118,19 @@ $$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longri
 * [x] Ethernet MAC frame modeling (`EthernetFrame`) & telemetry header embedding (sequence numbers, timestamps)
 * [x] Software traffic generator (`TrafficGenerator`) & software traffic receiver/sink (`TrafficSink`)
 * [x] Traffic performance statistics engine (`TrafficStatistics`)
-* [x] Pytest test automation framework structure & markers (`l2`, `functional`, `regression`, `negative`, `performance`, `instrument`, `simulator`)
-* [x] Custom measurement assertion helpers & JSON telemetry exporter (`test_results.json`)
+* [x] Pytest test automation framework structure & markers (`l2`, `functional`, `regression`, `negative`, `performance`, `instrument`, `simulator`, `integration`)
+* [x] C# ASP.NET Core Web API orchestration layer (`Controllers`, `Services`, `Domain`, `Repositories`, `Middleware`)
+* [x] Thread-safe in-memory repository abstractions (`ConcurrentDictionary`)
+* [x] Test-run lifecycle management & result ingestion metrics aggregation
+* [x] Structured API exception middleware (`ApiExceptionMiddleware`) & OpenAPI/Swagger documentation
+* [x] C# xUnit API test suite (`LabLink.Api.Tests`) using `WebApplicationFactory`
+* [x] Python standard-library HTTP API client (`LabLinkAPIClient`) & Python ↔ C# REST API integration test suite
 * [x] Hardware-free unit, integration, functional, regression, negative, and performance test suites
 
 ### Deliberately Deferred Functionality (Future Milestones)
+* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.7*
 * [ ] Physical optical equipment validation (No physical optical hardware attached)
 * [ ] NI-VISA native binary driver bindings — *Deferred*
 * [ ] IXIA hardware integration — *Deferred*
 * [ ] Kernel-bypass networking / DPDK drivers — *Deferred*
-* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.6*
-* [ ] ASP.NET Core test management REST API endpoints — *Milestone v0.6*
-* [ ] Jenkins CI/CD pipelines & Docker environment orchestration — *Milestone v0.6*
+* [ ] Jenkins CI/CD pipelines & Docker environment orchestration — *Milestone v0.8*

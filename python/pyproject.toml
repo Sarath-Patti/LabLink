@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lablink"
-version = "0.5.0"
+version = "0.6.0"
 description = "LabLink test automation and instrument integration platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -56,6 +56,7 @@ markers = [
     "instrument: Tests targeting instrument drivers",
     "simulator: Tests targeting software simulators",
     "l2: Layer-2 Ethernet and network validation tests",
+    "integration: Integration tests requiring local servers or API services",
 ]
 
 [tool.black]

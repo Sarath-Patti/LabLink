@@ -21,8 +21,8 @@ from lablink.logging import get_logger, setup_logging
 
 
 def test_package_import_and_version() -> None:
-    """Verify that the lablink package imports cleanly and exposes version 0.5.0."""
-    assert lablink.__version__ == "0.5.0"
+    """Verify that the lablink package imports cleanly and exposes version 0.6.0."""
+    assert lablink.__version__ == "0.6.0"
     assert hasattr(lablink, "__author__")
 
 
