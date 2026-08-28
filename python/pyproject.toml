@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lablink"
-version = "0.4.0"
+version = "0.5.0"
 description = "LabLink test automation and instrument integration platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -55,6 +55,7 @@ markers = [
     "performance: Lightweight SCPI query and measurement latency tests",
     "instrument: Tests targeting instrument drivers",
     "simulator: Tests targeting software simulators",
+    "l2: Layer-2 Ethernet and network validation tests",
 ]
 
 [tool.black]

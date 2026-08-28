@@ -2,7 +2,7 @@
 LabLink Unified Exception Hierarchy.
 
 Provides structured, domain-specific exception types across transport,
-protocol, instrument, and system modules.
+protocol, instrument, network, and system modules.
 """
 
 
@@ -59,3 +59,24 @@ class InvalidResponseError(ProtocolError):
 
 class VISAError(ProtocolError):
     """Raised when a VISA resource addressing or configuration error occurs."""
+
+
+# =====================================================================
+# Network & Layer-2 Exceptions
+# =====================================================================
+
+
+class NetworkError(ProtocolError):
+    """Base exception for network framing, MAC address, or Layer-2 errors."""
+
+
+class InvalidMACAddressError(NetworkError):
+    """Raised when a MAC address string or byte array is invalid."""
+
+
+class InvalidVLANError(NetworkError):
+    """Raised when a 802.1Q VLAN ID or priority parameter is out of range."""
+
+
+class MalformedFrameError(NetworkError):
+    """Raised when an Ethernet frame byte sequence is truncated or corrupt."""

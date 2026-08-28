@@ -2,7 +2,7 @@
 Global Pytest Configuration and Reusable Test Fixtures for LabLink.
 
 Provides reusable fixtures for simulator lifecycles, connected instrument clients,
-mock transports, and configuration environments.
+Layer-2 Ethernet framing, software traffic engines, and mock transports.
 """
 
 from collections.abc import Generator
@@ -14,6 +14,10 @@ from lablink.devices.network_switch import NetworkSwitch
 from lablink.instruments.optical_oscilloscope import OpticalOscilloscope
 from lablink.instruments.optical_power_meter import OpticalPowerMeter
 from lablink.instruments.optical_switch import OpticalSwitch
+from lablink.network.ethernet import EthernetFrame
+from lablink.network.mac import MACAddress
+from lablink.network.traffic import TrafficGenerator, TrafficSink
+from lablink.network.vlan import VLANHeader
 from lablink.protocols.scpi import SCPIProtocol
 from lablink.simulators.network_switch import NetworkSwitchSimulator
 from lablink.simulators.optical_oscilloscope import OpticalOscilloscopeSimulator
@@ -39,6 +43,56 @@ def mock_transport() -> MockTransport:
 def mock_scpi(mock_transport: MockTransport) -> SCPIProtocol:
     """Fixture providing an SCPIProtocol instance over MockTransport."""
     return SCPIProtocol(transport=mock_transport)
+
+
+# =============================================================================
+# Layer-2 Ethernet and Traffic Engine Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def default_src_mac() -> MACAddress:
+    """Fixture providing a standard test source MAC address."""
+    return MACAddress("00:11:22:33:44:55")
+
+
+@pytest.fixture
+def default_dst_mac() -> MACAddress:
+    """Fixture providing a standard test destination MAC address."""
+    return MACAddress("00:AA:BB:CC:DD:EE")
+
+
+@pytest.fixture
+def sample_ethernet_frame(
+    default_src_mac: MACAddress, default_dst_mac: MACAddress
+) -> EthernetFrame:
+    """Fixture providing a sample VLAN-tagged EthernetFrame."""
+    return EthernetFrame(
+        dst_mac=default_dst_mac,
+        src_mac=default_src_mac,
+        ethertype=0x0800,
+        vlan_header=VLANHeader(vlan_id=100, pcp=3),
+        payload=b"LABLINK_L2_TEST_PAYLOAD",
+    )
+
+
+@pytest.fixture
+def traffic_generator(default_src_mac: MACAddress, default_dst_mac: MACAddress) -> TrafficGenerator:
+    """Fixture providing a configured TrafficGenerator instance."""
+    return TrafficGenerator(
+        src_mac=default_src_mac,
+        dst_mac=default_dst_mac,
+        vlan_id=100,
+        frame_size=64,
+        packet_count=50,
+        rate_fps=1000.0,
+    )
+
+
+@pytest.fixture
+def traffic_sink() -> TrafficSink:
+    """Fixture providing a fresh TrafficSink instance."""
+    return TrafficSink()
 
 
 # =============================================================================

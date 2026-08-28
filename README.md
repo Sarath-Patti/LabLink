@@ -1,6 +1,6 @@
 # LabLink: Network & Instrument Test Automation Platform
 
-LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, and automated test execution alongside a C#/.NET service layer for test management.
+LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, software Layer-2 Ethernet validation, and automated test execution alongside a C#/.NET service layer for test management.
 
 ---
 
@@ -8,7 +8,7 @@ LabLink is an extensible, multi-tier network and laboratory instrument test auto
 
 LabLink employs a decoupled multi-tiered architecture:
 
-* **Python Layer (`python/`):** Primary engine for test automation, physical/network transport handling (TCP/IP, Serial RS-232, Mock), SCPI protocol parsing, VISA-style resource management, instrument abstractions, optical equipment simulators, hardware device control, and pytest-based test automation framework.
+* **Python Layer (`python/`):** Primary engine for test automation, physical/network transport handling (TCP/IP, Serial RS-232, Mock), SCPI protocol parsing, VISA-style resource management, instrument abstractions, optical equipment simulators, Layer-2 Ethernet frame modeling, 802.1Q VLAN tagging, software traffic generation/analysis, and pytest-based test automation framework.
 * **C# / .NET Layer (`dotnet/LabLink.Api`):** Service layer providing an ASP.NET Core Web API foundation for test management, run orchestration, and reporting.
 * **Persistence Layer (Planned):** PostgreSQL database integration for historical test logs, device telemetry, and run results.
 * **Infrastructure (Planned):** Docker-based integration environments and Jenkins CI/CD automation pipelines.
@@ -41,8 +41,8 @@ LabLink employs a decoupled multi-tiered architecture:
 
 * **Automation & Drivers:** Python 3.11
 * **Test Framework:** pytest (with markers, fixtures, custom assertions, and JSON telemetry export)
+* **Networking & Layer-2 Validation:** Software EthernetFrame, MACAddress, 802.1Q VLANHeader, TrafficGenerator, TrafficSink, TrafficStatistics
 * **Service API:** C# / .NET 8.0 ASP.NET Core
-* **Networking & Protocols:** TCP/IP Sockets, RS-232 Serial, SCPI (IEEE 488.2), VISA-style abstractions
 * **Instruments & Simulators:** Optical Power Meter, Optical Switch, Optical Oscilloscope, Network Switch Control
 * **Persistence (Planned):** PostgreSQL
 * **CI/CD & Containers (Planned):** Docker, Jenkins
@@ -61,15 +61,16 @@ LabLink/
 │   │   ├── protocols/       # SCPIProtocol, VISAResource, VISAResourceManager
 │   │   ├── instruments/     # BaseInstrument, OpticalPowerMeter, OpticalSwitch, OpticalOscilloscope
 │   │   ├── devices/         # NetworkSwitch device control abstraction
-│   │   └── simulators/      # BaseInstrumentSimulator, OpticalPowerMeterSimulator, OpticalSwitchSimulator, OpticalOscilloscopeSimulator, NetworkSwitchSimulator
+│   │   ├── simulators/      # BaseInstrumentSimulator, OpticalPowerMeterSimulator, OpticalSwitchSimulator, OpticalOscilloscopeSimulator, NetworkSwitchSimulator
+│   │   └── network/         # MACAddress, VLANHeader, EthernetFrame, TrafficGenerator, TrafficSink, TrafficStatistics
 │   └── tests/
-│       ├── conftest.py      # Reusable fixtures (simulators, connected clients, config)
-│       ├── unit/            # Unit tests for transports, SCPI, VISA, instruments, simulators
+│       ├── conftest.py      # Reusable fixtures (simulators, connected clients, L2 frames/traffic, config)
+│       ├── unit/            # Unit tests for transports, SCPI, VISA, instruments, simulators, MAC, VLAN, Ethernet, traffic
 │       ├── integration/     # Local TCP socket integration tests against local simulators
-│       ├── functional/      # Functional tests for OPM, Switch, Scope, Network Switch
-│       ├── regression/      # End-to-end multi-instrument automated test bench regression suite
-│       ├── negative/        # Negative boundary, invalid input, and error handling tests
-│       ├── performance/     # SCPI query latency and measurement throughput benchmarks
+│       ├── functional/      # Functional tests for OPM, Switch, Scope, Network Switch, L2 frames
+│       ├── regression/      # End-to-end multi-instrument & L2 network automated test bench regression suite
+│       ├── negative/        # Negative boundary, invalid input, malformed MAC/VLAN, and error handling tests
+│       ├── performance/     # SCPI query latency, measurement throughput, and L2 serialization/parsing benchmarks
 │       └── utilities/       # Custom assertions, timing helpers, JSON result exporter
 │
 ├── dotnet/
@@ -78,7 +79,7 @@ LabLink/
 ├── config/                  # Safe configuration templates (.json, .env)
 ├── docs/                    # Architectural & design documentation
 ├── scripts/                 # Development lifecycle scripts (setup, test, clean)
-├── ethernet/                # Layer-2 Ethernet test components (Milestone v0.5)
+├── ethernet/                # Layer-2 Ethernet test components
 ├── docker/                  # Docker containerization (Milestone v0.6)
 └── jenkins/                 # Jenkins CI/CD pipelines (Milestone v0.6)
 ```
@@ -87,7 +88,7 @@ LabLink/
 
 ## Current Milestone Status
 
-**Current Milestone:** `v0.4: Python Test Automation Framework`
+**Current Milestone:** `v0.5: Layer-2 Ethernet & Network Validation`
 
 ### Implemented Functionality
 * [x] **Repository Foundation:** Python package, `.gitignore`, pytest setup, C# ASP.NET Core health service.
@@ -100,22 +101,23 @@ LabLink/
 * [x] **Instrument Abstraction Layer:** `BaseInstrument` composing transport and protocol objects via dependency injection.
 * [x] **Optical Equipment & Device Control:** `OpticalPowerMeter`, `OpticalSwitch`, `OpticalOscilloscope`, and `NetworkSwitch`.
 * [x] **Software Simulators Layer:** Local TCP SCPI server simulators (`OpticalPowerMeterSimulator`, `OpticalSwitchSimulator`, `OpticalOscilloscopeSimulator`, `NetworkSwitchSimulator`) listening on `127.0.0.1`.
-* [x] **Reusable Pytest Fixtures:** Dynamic simulator lifecycle (`opm_sim`, `switch_sim`, `scope_sim`, `net_switch_sim`) and connected client fixtures (`opm_client`, `switch_client`, `scope_client`, `net_switch_client`).
-* [x] **Standardized Pytest Markers:** Registered `functional`, `regression`, `negative`, `performance`, `instrument`, `simulator` markers.
-* [x] **Functional Test Suite:** Parameterized test cases for wavelength tuning, power units, optical switch routing, timebase scaling, and port control.
-* [x] **Regression Test Suite:** End-to-end multi-instrument optical test bench workflow verification.
-* [x] **Negative Test Suite:** Out-of-range parameters, disabled acquisition errors, undefined SCPI headers, and transport disconnection modes.
-* [x] **Performance Benchmarks:** Empirical SCPI query round-trip latency and measurement throughput benchmarking with JSON result telemetry exports.
-* [x] **Custom Assertion Helpers:** `assert_within_tolerance`, `assert_greater_than`, `assert_less_than`, and `assert_in_range`.
-* [x] **Structured Test Results:** `TestMeasurementResult` dataclass and `JSONResultExporter` generating `test_results.json`.
+* [x] **Layer-2 MAC Address Model:** `MACAddress` supporting string parsing (colon, hyphen, raw hex), canonical string output, byte conversion, broadcast/multicast classification.
+* [x] **IEEE 802.1Q VLAN Tagging:** `VLANHeader` supporting VLAN ID validation (`0..4095`), Priority Code Point (`0..7`), DEI flags, and 4-byte TCI binary serialization/parsing.
+* [x] **Ethernet Frame Abstraction:** `EthernetFrame` supporting untagged and 802.1Q tagged frame modeling, embedded telemetry headers (sequence IDs, nanosecond timestamps), frame padding, binary serialization, and deserialization.
+* [x] **Software Traffic Generator:** `TrafficGenerator` creating deterministic Ethernet frame streams with sequence tracking and payload padding.
+* [x] **Software Traffic Receiver & Sink:** `TrafficSink` tracking sequence gaps, lost frames, duplicate frames, corrupted frames, and timestamp latencies.
+* [x] **Traffic Performance Telemetry:** `TrafficStatistics` computing throughput (bytes/sec, bits/sec, frames/sec), packet loss percentages, and latency metrics.
+* [x] **Pytest Framework & Markers:** Registered `l2`, `functional`, `regression`, `negative`, `performance`, `instrument`, `simulator` markers.
+* [x] **Automated Test Suites:** Hardware-free unit, integration, functional, negative, performance, and regression test suites.
 
 ### Explicitly Deferred / Planned Functionality
 * [ ] Physical optical equipment validation (No physical optical hardware attached)
 * [ ] NI-VISA native binary C-driver bindings (VISA-style software abstraction implemented)
-* [ ] IXIA hardware integration (Deferred)
-* [ ] Layer-2 Ethernet raw packet generation, VLAN forwarding & traffic generator — *Milestone v0.5*
-* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.5*
-* [ ] ASP.NET Core test management REST API endpoints — *Milestone v0.5*
+* [ ] IXIA hardware generator integration (Deferred)
+* [ ] Kernel-bypass networking / DPDK drivers (Deferred)
+* [ ] Physical network switch testing (Software switch simulator & control implemented)
+* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.5 Extension / v0.6*
+* [ ] ASP.NET Core test management REST API endpoints — *Milestone v0.6*
 * [ ] Docker environment & Jenkins CI/CD automation — *Milestone v0.6*
 
 ---
@@ -154,6 +156,7 @@ pytest tests/negative -v
 pytest tests/performance -v
 
 # Run selective marker suites
+pytest -m l2 -v
 pytest -m functional -v
 pytest -m regression -v
 pytest -m negative -v

@@ -5,8 +5,8 @@
 LabLink is a multi-tier network and laboratory instrument test automation platform designed with strict separation of concerns across two primary technical stacks:
 
 1. **Python Layer (`python/`)**
-   * **Role:** Primary test automation engine, instrument integration, protocol parsing, hardware transport execution, and pytest automation framework.
-   * **Responsibility:** Executes SCPI commands, manages TCP/IP, RS-232 serial, and Layer-2 Ethernet streams, drives instrument drivers, software simulators, and runs pytest automation workflows.
+   * **Role:** Primary test automation engine, instrument integration, protocol parsing, hardware transport execution, Layer-2 Ethernet validation, software traffic generation, and pytest automation framework.
+   * **Responsibility:** Executes SCPI commands, manages TCP/IP, RS-232 serial, and Layer-2 Ethernet streams, drives instrument drivers, software simulators, software traffic engines, and runs pytest automation workflows.
 
 2. **C#/.NET Layer (`dotnet/LabLink.Api`)**
    * **Role:** Test management, orchestration, and external Web API platform.
@@ -36,11 +36,25 @@ LabLink is a multi-tier network and laboratory instrument test automation platfo
 
 ---
 
+## Milestone v0.5 Layer-2 Ethernet & Network Validation Architecture
+
+### 1. Layer-2 Subsystem Composition (`lablink.network`)
+The Layer-2 network validation subsystem provides typed abstractions for Ethernet MAC framing, 802.1Q VLAN tagging, software traffic generation, and traffic sink sequence tracking:
+
+$$\text{TrafficGenerator} \longrightarrow \text{EthernetFrame (MACAddress + VLANHeader)} \longrightarrow \text{TrafficSink} \longrightarrow \text{TrafficStatistics}$$
+
+* **`MACAddress`**: Validated 48-bit MAC address value object supporting colon/hyphen/raw hex formats, byte serialization, and broadcast/multicast classification.
+* **`VLANHeader`**: IEEE 802.1Q 4-byte VLAN tag model supporting VLAN IDs (`0..4095`), Priority Code Point (`0..7`), and DEI flags.
+* **`EthernetFrame`**: Untagged and 802.1Q tagged MAC frame serialization and parsing with sequence number and nanosecond timestamp embedding.
+* **`TrafficGenerator`**: Software traffic generator producing deterministic Ethernet frame streams with sequence tracking and payload padding.
+* **`TrafficSink`**: Receiver and analyzer tracking sequence gaps, lost frames, duplicate frames, corrupted frames, and timestamp latencies.
+* **`TrafficStatistics`**: Dataclass representing throughput (bytes/sec, bits/sec, frames/sec), packet loss percentages, and latency metrics.
+
+---
+
 ## Milestone v0.4 Test Automation Framework Architecture
 
 ### 1. Test Layer Composition & Selective Execution Map
-The test framework organizes tests into explicit, modular directories and pytest markers to support flexible execution:
-
 ```
 pytest Execution Command
    │
@@ -49,21 +63,12 @@ pytest Execution Command
    ├──> pytest tests/functional         (-m functional)
    ├──> pytest tests/regression         (-m regression)
    ├──> pytest tests/negative           (-m negative)
-   └──> pytest tests/performance        (-m performance)
+   ├──> pytest tests/performance        (-m performance)
+   └──> pytest -m l2                    (-m l2)
 ```
 
 ### 2. Fixture Lifecycle Architecture (`python/tests/conftest.py`)
-To ensure total test isolation and zero socket leakage, fixture composition follows strict lifecycle boundaries:
-
 $$\text{Simulator Fixture (start / yield / stop)} \longrightarrow \text{TCPTransport (connect)} \longrightarrow \text{Instrument Driver} \longrightarrow \text{Test Execution} \longrightarrow \text{Teardown (disconnect)}$$
-
-* **`opm_sim` / `switch_sim` / `scope_sim` / `net_switch_sim`**: In-process TCP simulators bound to `127.0.0.1` on dynamic OS ports (`port=0`).
-* **`opm_client` / `switch_client` / `scope_client` / `net_switch_client`**: Auto-connecting instrument driver clients.
-
-### 3. Assertion & Telemetry Infrastructure (`python/tests/utilities/`)
-* **Assertion Helpers (`assertions.py`)**: Domain-specific assertion wrappers (`assert_within_tolerance`, `assert_greater_than`, `assert_less_than`, `assert_in_range`) with explicit diagnostic error context.
-* **Timing & Polling (`helpers.py`)**: High-resolution execution timing (`measure_execution_time`) and polling condition synchronization (`wait_until_condition`).
-* **Telemetry Reporting (`reporting.py`)**: `TestMeasurementResult` records serialized to local `test_results.json` via `JSONResultExporter`.
 
 ---
 
@@ -77,16 +82,9 @@ $$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longri
 * `OpticalOscilloscope` $\rightarrow$ `SCPIProtocol` $\rightarrow$ `TCPTransport` $\rightarrow$ `OpticalOscilloscopeSimulator`
 * `NetworkSwitch` $\rightarrow$ `SCPIProtocol` $\rightarrow$ `TCPTransport` $\rightarrow$ `NetworkSwitchSimulator`
 
-### 2. Instrument Subsystem (`lablink.instruments` & `lablink.devices`)
-* **`BaseInstrument`**: Abstract base class composing a `BaseTransport` and `SCPIProtocol`.
-* **`OpticalPowerMeter`**: Software driver for optical power meters supporting wavelength tuning (`CONF:WAVELENGTH`), measurement units (`CONF:UNIT`), and power readings (`MEAS:POW?`).
-* **`OpticalSwitch`**: Software driver for optical channel switch matrices (`ROUTE:SET`, `ROUTE?`, `ROUTE:CHAN:COUNT?`).
-* **`OpticalOscilloscope`**: Software driver for optical oscilloscopes (`TIMEBASE:SCALE`, `CHANNEL:SCALE`, `ACQUIRE:STATE`, `WAVEFORM:DATA?`).
-* **`NetworkSwitch`**: Device control abstraction for network switches (`enable_port`, `disable_port`, `get_port_state`, `get_all_port_states`).
-
 ---
 
-## Implementation Status (Milestone v0.4)
+## Implementation Status (Milestone v0.5)
 
 ### Implemented Functionality
 * [x] Abstract transport interface contract (`BaseTransport`) & client transports (`TCPTransport`, `SerialTransport`, `MockTransport`)
@@ -94,8 +92,11 @@ $$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longri
 * [x] VISA-style resource manager (`VISAResourceManager`) & resource wrapper (`VISAResource`)
 * [x] Base instrument abstraction (`BaseInstrument`) & concrete instrument drivers (`OpticalPowerMeter`, `OpticalSwitch`, `OpticalOscilloscope`, `NetworkSwitch`)
 * [x] In-process TCP SCPI software simulators (`OpticalPowerMeterSimulator`, `OpticalSwitchSimulator`, `OpticalOscilloscopeSimulator`, `NetworkSwitchSimulator`)
-* [x] Pytest test automation framework structure (`conftest.py`, `functional/`, `regression/`, `negative/`, `performance/`, `utilities/`)
-* [x] Pytest markers (`functional`, `regression`, `negative`, `performance`, `instrument`, `simulator`)
+* [x] Layer-2 MAC address value object (`MACAddress`) & 802.1Q VLAN tag model (`VLANHeader`)
+* [x] Ethernet MAC frame modeling (`EthernetFrame`) & telemetry header embedding (sequence numbers, timestamps)
+* [x] Software traffic generator (`TrafficGenerator`) & software traffic receiver/sink (`TrafficSink`)
+* [x] Traffic performance statistics engine (`TrafficStatistics`)
+* [x] Pytest test automation framework structure & markers (`l2`, `functional`, `regression`, `negative`, `performance`, `instrument`, `simulator`)
 * [x] Custom measurement assertion helpers & JSON telemetry exporter (`test_results.json`)
 * [x] Hardware-free unit, integration, functional, regression, negative, and performance test suites
 
@@ -103,7 +104,7 @@ $$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longri
 * [ ] Physical optical equipment validation (No physical optical hardware attached)
 * [ ] NI-VISA native binary driver bindings — *Deferred*
 * [ ] IXIA hardware integration — *Deferred*
-* [ ] Layer-2 Ethernet raw frame testing, packet generation & traffic generator — *Milestone v0.5*
-* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.5*
-* [ ] ASP.NET Core test management REST API endpoints — *Milestone v0.5*
+* [ ] Kernel-bypass networking / DPDK drivers — *Deferred*
+* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.6*
+* [ ] ASP.NET Core test management REST API endpoints — *Milestone v0.6*
 * [ ] Jenkins CI/CD pipelines & Docker environment orchestration — *Milestone v0.6*

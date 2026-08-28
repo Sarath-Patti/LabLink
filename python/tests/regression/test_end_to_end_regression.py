@@ -1,14 +1,16 @@
 """
-Regression Test Suite — End-to-End Automated Optical Test Bench Workflow.
+Regression Test Suite — End-to-End Automated Optical & Layer-2 Network Test Bench Workflow.
 
-Executes complete multi-instrument test bench scenarios composing optical switches
-and optical power meters to verify end-to-end regression stability.
+Executes complete multi-instrument and Layer-2 network validation test bench scenarios
+to verify end-to-end system regression stability across Python drivers, protocols, and network models.
 """
 
 import pytest
 
+from lablink.devices.network_switch import NetworkSwitch
 from lablink.instruments.optical_power_meter import OpticalPowerMeter
 from lablink.instruments.optical_switch import OpticalSwitch
+from lablink.network.traffic import TrafficGenerator, TrafficSink
 from tests.utilities.assertions import assert_within_tolerance
 from tests.utilities.reporting import JSONResultExporter, TestMeasurementResult
 
@@ -77,3 +79,53 @@ def test_automated_optical_test_bench_regression(
     # Step 4: Export telemetry
     report_path = exporter.export()
     assert report_path.is_file()
+
+
+@pytest.mark.regression
+@pytest.mark.l2
+def test_multidomain_l2_network_and_optical_regression(
+    opm_client: OpticalPowerMeter,
+    net_switch_client: NetworkSwitch,
+    traffic_generator: TrafficGenerator,
+    traffic_sink: TrafficSink,
+) -> None:
+    """
+    Verify multi-domain integrated optical & Layer-2 network test bench regression scenario:
+    1. Verify NetworkSwitch control and enable target port.
+    2. Route optical channel to OPM and measure power level.
+    3. Transmit 802.1Q tagged Ethernet frame traffic stream.
+    4. Analyze sink performance (zero packet loss, positive throughput).
+    5. Verify clean execution with zero SCPI errors.
+    """
+    # 1. Device control
+    assert net_switch_client.get_port_count() == 24
+    net_switch_client.enable_port(1)
+    assert net_switch_client.get_port_state(1) is True
+
+    # 2. Optical measurement
+    opm_client.set_wavelength(1550.0)
+    assert opm_client.measure_power() == -10.0
+
+    # 3. Traffic stream execution
+    frames = traffic_generator.generate_frames()
+    tx_bytes = sum(f.frame_size for f in frames)
+
+    for frame in frames:
+        traffic_sink.process_frame(frame)
+
+    # 4. Traffic analysis
+    stats = traffic_sink.analyze(
+        transmitted_count=len(frames),
+        transmitted_bytes=tx_bytes,
+        duration_sec=0.05,
+    )
+
+    assert stats.transmitted_packets == 50
+    assert stats.received_packets == 50
+    assert stats.lost_packets == 0
+    assert stats.packet_loss_percentage == 0.0
+    assert stats.throughput_bytes_per_sec > 0.0
+
+    # 5. Clean error status check
+    opm_client.check_system_errors()
+    net_switch_client.check_system_errors()
