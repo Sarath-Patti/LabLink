@@ -2,7 +2,8 @@
 LabLink HTTP API Client for Python ↔ C# REST API Integration.
 
 Provides standard-library HTTP operations for interacting with the LabLink.Api ASP.NET Core service layer,
-including test case management, test run lifecycles, test result ingestion, device, and instrument registrations.
+including test case management, test run lifecycles, test result ingestion, device/instrument registrations,
+and v1.0 manufacturing execution, measurement traceability, and yield analytics endpoints.
 """
 
 import json
@@ -168,4 +169,115 @@ class LabLinkAPIClient:
             "enabled": enabled,
         }
         res = self._request("POST", "/api/v1/instruments", payload)
+        return res if isinstance(res, dict) else {}
+
+    # --- v1.0 Manufacturing Endpoints ---
+
+    def create_dut(
+        self,
+        serial_number: str,
+        part_number: str = "PN-OPT-100G",
+        hardware_revision: str = "RevA",
+        firmware_version: str = "v1.0.0",
+    ) -> dict[str, Any]:
+        """POST /api/v1/duts"""
+        payload = {
+            "serialNumber": serial_number,
+            "partNumber": part_number,
+            "hardwareRevision": hardware_revision,
+            "firmwareVersion": firmware_version,
+        }
+        res = self._request("POST", "/api/v1/duts", payload)
+        return res if isinstance(res, dict) else {}
+
+    def get_dut_by_id(self, dut_id: str) -> dict[str, Any]:
+        """GET /api/v1/duts/{dut_id}"""
+        res = self._request("GET", f"/api/v1/duts/{dut_id}")
+        return res if isinstance(res, dict) else {}
+
+    def get_dut_by_serial(self, serial_number: str) -> dict[str, Any]:
+        """GET /api/v1/duts/serial/{serial_number}"""
+        res = self._request("GET", f"/api/v1/duts/serial/{serial_number}")
+        return res if isinstance(res, dict) else {}
+
+    def create_manufacturing_run(
+        self,
+        serial_number: str,
+        station_id: str = "Station-01",
+        sequence_name: str = "OpticalSequence",
+        sequence_version: str = "1.0",
+        software_version: str = "1.0.0",
+    ) -> dict[str, Any]:
+        """POST /api/v1/manufacturing/runs"""
+        payload = {
+            "serialNumber": serial_number,
+            "stationId": station_id,
+            "sequenceName": sequence_name,
+            "sequenceVersion": sequence_version,
+            "softwareVersion": software_version,
+        }
+        res = self._request("POST", "/api/v1/manufacturing/runs", payload)
+        return res if isinstance(res, dict) else {}
+
+    def add_measurement(
+        self,
+        run_id: str,
+        step_name: str,
+        measurement_name: str,
+        value: Any,
+        unit: str = "",
+        lower_limit: float | None = None,
+        upper_limit: float | None = None,
+        expected_value: str | None = None,
+        verdict: str = "Passed",
+        failure_code: str = "NONE",
+        instrument_source: str = "Simulator",
+    ) -> dict[str, Any]:
+        """POST /api/v1/manufacturing/runs/{run_id}/measurements"""
+        try:
+            num_val = float(value)
+        except (ValueError, TypeError):
+            num_val = 1.0 if str(value).upper() in ("CONNECTED", "PASS", "TRUE") else 0.0
+            if expected_value is None:
+                expected_value = str(value)
+
+        payload = {
+            "stepName": step_name,
+            "measurementName": measurement_name,
+            "value": num_val,
+            "unit": unit,
+            "lowerLimit": lower_limit,
+            "upperLimit": upper_limit,
+            "expectedValue": expected_value,
+            "verdict": verdict,
+            "failureCode": failure_code,
+            "instrumentSource": instrument_source,
+        }
+        res = self._request("POST", f"/api/v1/manufacturing/runs/{run_id}/measurements", payload)
+        return res if isinstance(res, dict) else {}
+
+    def complete_manufacturing_run(
+        self,
+        run_id: str,
+        verdict: str = "Completed",
+        failure_code: str = "NONE",
+        failure_summary: str | None = None,
+    ) -> dict[str, Any]:
+        """POST /api/v1/manufacturing/runs/{run_id}/complete"""
+        payload = {
+            "verdict": verdict,
+            "failureCode": failure_code,
+            "failureSummary": failure_summary,
+        }
+        res = self._request("POST", f"/api/v1/manufacturing/runs/{run_id}/complete", payload)
+        return res if isinstance(res, dict) else {}
+
+    def get_run_measurements(self, run_id: str) -> list[dict[str, Any]]:
+        """GET /api/v1/manufacturing/runs/{run_id}/measurements"""
+        res = self._request("GET", f"/api/v1/manufacturing/runs/{run_id}/measurements")
+        return res if isinstance(res, list) else []
+
+    def get_yield_analytics(self) -> dict[str, Any]:
+        """GET /api/v1/manufacturing/analytics/yield"""
+        res = self._request("GET", "/api/v1/manufacturing/analytics/yield")
         return res if isinstance(res, dict) else {}

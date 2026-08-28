@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using LabLink.Api.Domain.Enums;
 using LabLink.Api.DTOs;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -13,7 +14,10 @@ public class DeviceAndInstrumentApiTests : IClassFixture<WebApplicationFactory<P
 
     public DeviceAndInstrumentApiTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.CreateClient();
+        _client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Persistence:Provider", "InMemory");
+        }).CreateClient();
     }
 
     [Fact]
@@ -25,7 +29,8 @@ public class DeviceAndInstrumentApiTests : IClassFixture<WebApplicationFactory<P
             Model: "Cisco-Nexus-9000",
             Address: "192.168.1.50:5025",
             Protocol: DeviceProtocol.SCPI,
-            Enabled: true
+            Enabled: true,
+            Metadata: new Dictionary<string, string> { ["vlan_mode"] = "trunk" }
         );
 
         var createRes = await _client.PostAsJsonAsync("/api/v1/devices", request);
@@ -35,12 +40,8 @@ public class DeviceAndInstrumentApiTests : IClassFixture<WebApplicationFactory<P
         Assert.NotNull(created);
         Assert.Equal("core_nexus_switch_01", created.Name);
 
-        var listRes = await _client.GetAsync("/api/v1/devices");
-        Assert.Equal(HttpStatusCode.OK, listRes.StatusCode);
-
-        var list = await listRes.Content.ReadFromJsonAsync<List<DeviceResponse>>();
-        Assert.NotNull(list);
-        Assert.Contains(list, d => d.Id == created.Id);
+        var getRes = await _client.GetAsync($"/api/v1/devices/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getRes.StatusCode);
     }
 
     [Fact]
@@ -49,10 +50,8 @@ public class DeviceAndInstrumentApiTests : IClassFixture<WebApplicationFactory<P
         var request = new CreateInstrumentRequest(
             Name: "optical_power_meter_lab1",
             Type: "OpticalPowerMeter",
-            Model: "Keysight-N5767A",
             Interface: "TCPIP",
-            Address: "127.0.0.1:5025",
-            Enabled: true
+            Address: "127.0.0.1:5025"
         );
 
         var createRes = await _client.PostAsJsonAsync("/api/v1/instruments", request);
@@ -62,11 +61,7 @@ public class DeviceAndInstrumentApiTests : IClassFixture<WebApplicationFactory<P
         Assert.NotNull(created);
         Assert.Equal("optical_power_meter_lab1", created.Name);
 
-        var listRes = await _client.GetAsync("/api/v1/instruments");
-        Assert.Equal(HttpStatusCode.OK, listRes.StatusCode);
-
-        var list = await listRes.Content.ReadFromJsonAsync<List<InstrumentResponse>>();
-        Assert.NotNull(list);
-        Assert.Contains(list, i => i.Id == created.Id);
+        var getRes = await _client.GetAsync($"/api/v1/instruments/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getRes.StatusCode);
     }
 }

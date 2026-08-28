@@ -42,6 +42,9 @@ if (persistenceProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
     builder.Services.AddScoped<ITestResultRepository, PostgresTestResultRepository>();
     builder.Services.AddScoped<IDeviceRepository, PostgresDeviceRepository>();
     builder.Services.AddScoped<IInstrumentRepository, PostgresInstrumentRepository>();
+    builder.Services.AddScoped<IDutRepository, PostgresDutRepository>();
+    builder.Services.AddScoped<IManufacturingRunRepository, PostgresManufacturingRunRepository>();
+    builder.Services.AddScoped<IMeasurementRepository, PostgresMeasurementRepository>();
 }
 else
 {
@@ -50,6 +53,9 @@ else
     builder.Services.AddSingleton<ITestResultRepository, InMemoryTestResultRepository>();
     builder.Services.AddSingleton<IDeviceRepository, InMemoryDeviceRepository>();
     builder.Services.AddSingleton<IInstrumentRepository, InMemoryInstrumentRepository>();
+    builder.Services.AddSingleton<IDutRepository, InMemoryDutRepository>();
+    builder.Services.AddSingleton<IManufacturingRunRepository, InMemoryManufacturingRunRepository>();
+    builder.Services.AddSingleton<IMeasurementRepository, InMemoryMeasurementRepository>();
 }
 
 // Register Application Services (Scoped for compatibility with DbContext)
@@ -58,6 +64,8 @@ builder.Services.AddScoped<TestRunService>();
 builder.Services.AddScoped<TestResultService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<InstrumentService>();
+builder.Services.AddScoped<DutService>();
+builder.Services.AddScoped<ManufacturingService>();
 
 var app = builder.Build();
 

@@ -7,7 +7,7 @@ pipeline {
         LABLINK_DB_PORT = '5432'
         LABLINK_DB_NAME = 'lablink_dev'
         LABLINK_DB_USER = 'sarathpatti'
-        LABLINK_DB_PASSWORD = ''
+        LABLINK_DB_PASSWORD = 'lablink_pass'
         LABLINK_API_PORT = '5099'
     }
 
@@ -60,27 +60,27 @@ pipeline {
             }
         }
 
+        stage('PostgreSQL Service & Migrations') {
+            steps {
+                echo '=== Stage 6: PostgreSQL Service Startup & Readiness ==='
+                sh './scripts/start_postgres.sh'
+                sh './scripts/wait_for_postgres.sh'
+                sh './scripts/migrate_database.sh'
+            }
+        }
+
         stage('.NET Quality & Tests') {
             steps {
-                echo '=== Stage 6: .NET Build, Format & xUnit Tests ==='
+                echo '=== Stage 7: .NET Build, Format & xUnit Tests ==='
                 sh './scripts/run_dotnet_tests.sh'
             }
         }
 
         stage('Docker Compose Validation & Build') {
             steps {
-                echo '=== Stage 7: Docker Compose Config & Image Build ==='
+                echo '=== Stage 8: Docker Compose Config & Image Build ==='
                 sh 'docker compose -f docker/docker-compose.yml config'
                 sh 'docker compose -f docker/docker-compose.yml build'
-            }
-        }
-
-        stage('PostgreSQL Service') {
-            steps {
-                echo '=== Stage 8: PostgreSQL Service Startup & Readiness ==='
-                sh './scripts/start_postgres.sh'
-                sh './scripts/wait_for_postgres.sh'
-                sh './scripts/migrate_database.sh'
             }
         }
 
@@ -92,9 +92,16 @@ pipeline {
             }
         }
 
+        stage('Manufacturing Simulation & Analytics') {
+            steps {
+                echo '=== Stage 10: Manufacturing High-Volume Simulation & Yield Analytics (100 DUTs) ==='
+                sh 'PYTHONPATH=python python3 -m lablink.manufacturing.run_demo --duts 100 --seed 42'
+            }
+        }
+
         stage('Packaging & Artifacts') {
             steps {
-                echo '=== Stage 10: Archiving Test Artifacts and Logs ==='
+                echo '=== Stage 11: Archiving Test Artifacts and Logs ==='
                 archiveArtifacts artifacts: 'python_test_results.xml, api_ci.log', allowEmptyArchive: true
             }
         }

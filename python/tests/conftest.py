@@ -2,9 +2,10 @@
 Global Pytest Configuration and Reusable Test Fixtures for LabLink.
 
 Provides reusable fixtures for simulator lifecycles, connected instrument clients,
-Layer-2 Ethernet framing, software traffic engines, and mock transports.
+Layer-2 Ethernet framing, software traffic engines, mock transports, and local API server instances.
 """
 
+import subprocess
 from collections.abc import Generator
 
 import pytest
@@ -14,6 +15,7 @@ from lablink.devices.network_switch import NetworkSwitch
 from lablink.instruments.optical_oscilloscope import OpticalOscilloscope
 from lablink.instruments.optical_power_meter import OpticalPowerMeter
 from lablink.instruments.optical_switch import OpticalSwitch
+from lablink.integration.api_client import LabLinkAPIClient
 from lablink.network.ethernet import EthernetFrame
 from lablink.network.mac import MACAddress
 from lablink.network.traffic import TrafficGenerator, TrafficSink
@@ -25,6 +27,7 @@ from lablink.simulators.optical_power_meter import OpticalPowerMeterSimulator
 from lablink.simulators.optical_switch import OpticalSwitchSimulator
 from lablink.transport.mock import MockTransport
 from lablink.transport.tcp import TCPTransport
+from tests.utilities.helpers import wait_until_condition
 
 
 @pytest.fixture
@@ -191,3 +194,60 @@ def net_switch_client(
     net_switch.connect()
     yield net_switch
     net_switch.disconnect()
+
+
+# =============================================================================
+# ASP.NET Core REST API Instance Fixture
+# =============================================================================
+
+
+@pytest.fixture(scope="session")
+def api_server() -> Generator[str, None, None]:
+    """
+    Launch local LabLink.Api ASP.NET Core Web API instance for integration testing on port 5098.
+    """
+    base_url = "http://localhost:5098"
+    dotnet_cmd = [
+        "dotnet",
+        "run",
+        "--project",
+        "../dotnet/LabLink.Api/LabLink.Api.csproj",
+        "--urls",
+        base_url,
+        "--",
+        "--Persistence:Provider=InMemory",
+    ]
+
+    proc = subprocess.Popen(
+        dotnet_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    client = LabLinkAPIClient(base_url)
+
+    def is_healthy() -> bool:
+        try:
+            h = client.health_check()
+            return h.get("status") == "Healthy"
+        except (RuntimeError, OSError):
+            return False
+
+    try:
+        try:
+            wait_until_condition(is_healthy, timeout=15.0, interval=0.5)
+        except TimeoutError:
+            proc.kill()
+            stdout, stderr = proc.communicate()
+            pytest.fail(
+                f"LabLink.Api server failed to start on {base_url}.\nSTDOUT: {stdout}\nSTDERR: {stderr}"
+            )
+
+        yield base_url
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3.0)
+        except subprocess.TimeoutExpired:
+            proc.kill()

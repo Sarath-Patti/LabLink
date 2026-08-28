@@ -14,6 +14,11 @@ public class LabLinkDbContext : DbContext
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<Instrument> Instruments => Set<Instrument>();
 
+    // Manufacturing v1.0 DbSets
+    public DbSet<Dut> Duts => Set<Dut>();
+    public DbSet<ManufacturingRun> ManufacturingRuns => Set<ManufacturingRun>();
+    public DbSet<MeasurementRecord> MeasurementRecords => Set<MeasurementRecord>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -93,6 +98,66 @@ public class LabLinkDbContext : DbContext
             b.Property(i => i.Address).HasMaxLength(256);
 
             b.HasIndex(i => i.Name);
+        });
+
+        // Dut configuration (v1.0)
+        modelBuilder.Entity<Dut>(b =>
+        {
+            b.HasKey(d => d.Id);
+            b.Property(d => d.SerialNumber).IsRequired().HasMaxLength(128);
+            b.Property(d => d.PartNumber).HasMaxLength(128);
+            b.Property(d => d.HardwareRevision).HasMaxLength(64);
+            b.Property(d => d.FirmwareVersion).HasMaxLength(64);
+            b.Property(d => d.Status).HasConversion<string>().HasMaxLength(64);
+            b.HasIndex(d => d.SerialNumber).IsUnique();
+        });
+
+        // ManufacturingRun configuration (v1.0)
+        modelBuilder.Entity<ManufacturingRun>(b =>
+        {
+            b.HasKey(r => r.Id);
+            b.Property(r => r.DutId).IsRequired().HasMaxLength(128);
+            b.Property(r => r.SerialNumber).IsRequired().HasMaxLength(128);
+            b.Property(r => r.StationId).HasMaxLength(128);
+            b.Property(r => r.SequenceName).HasMaxLength(128);
+            b.Property(r => r.SequenceVersion).HasMaxLength(64);
+            b.Property(r => r.SoftwareVersion).HasMaxLength(64);
+            b.Property(r => r.Verdict).HasConversion<string>().HasMaxLength(64);
+            b.Property(r => r.FailureCode).HasConversion<string>().HasMaxLength(128);
+
+            b.HasOne<Dut>()
+                .WithMany()
+                .HasForeignKey(r => r.DutId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(r => r.DutId);
+            b.HasIndex(r => r.SerialNumber);
+            b.HasIndex(r => r.StartedAt);
+            b.HasIndex(r => r.Verdict);
+        });
+
+        // MeasurementRecord configuration (v1.0)
+        modelBuilder.Entity<MeasurementRecord>(b =>
+        {
+            b.HasKey(m => m.Id);
+            b.Property(m => m.ManufacturingRunId).IsRequired().HasMaxLength(128);
+            b.Property(m => m.DutId).IsRequired().HasMaxLength(128);
+            b.Property(m => m.StepName).IsRequired().HasMaxLength(128);
+            b.Property(m => m.MeasurementName).IsRequired().HasMaxLength(128);
+            b.Property(m => m.Unit).HasMaxLength(64);
+            b.Property(m => m.ExpectedValue).HasMaxLength(128);
+            b.Property(m => m.Verdict).HasConversion<string>().HasMaxLength(64);
+            b.Property(m => m.FailureCode).HasConversion<string>().HasMaxLength(128);
+            b.Property(m => m.InstrumentSource).HasMaxLength(128);
+
+            b.HasOne<ManufacturingRun>()
+                .WithMany()
+                .HasForeignKey(m => m.ManufacturingRunId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(m => m.ManufacturingRunId);
+            b.HasIndex(m => m.DutId);
+            b.HasIndex(m => m.Timestamp);
         });
     }
 }

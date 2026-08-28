@@ -1,0 +1,16 @@
+namespace LabLink.Api.Domain.Enums;
+
+public enum FailureCode
+{
+    NONE = 0,
+    INSTRUMENT_CONNECTION = 1,
+    INSTRUMENT_TIMEOUT = 2,
+    MEASUREMENT_OUT_OF_LIMIT = 3,
+    NETWORK_CONNECTIVITY = 4,
+    VLAN_CONFIGURATION = 5,
+    PACKET_LOSS = 6,
+    TRAFFIC_FAILURE = 7,
+    TEST_TIMEOUT = 8,
+    CONFIGURATION_ERROR = 9,
+    SOFTWARE_ERROR = 10
+}

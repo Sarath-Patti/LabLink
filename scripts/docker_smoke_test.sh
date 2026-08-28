@@ -10,7 +10,7 @@ VENV_BIN="${PYTHON_DIR}/.venv/bin"
 API_PORT="${LABLINK_API_PORT:-5099}"
 API_URL="http://localhost:${API_PORT}"
 
-echo "=== Executing Containerized REST API & Persistence Smoke Test ==="
+echo "=== Executing Containerized REST API & Manufacturing Persistence Smoke Test ==="
 echo "Target API: ${API_URL}"
 
 cd "${PYTHON_DIR}"
@@ -21,6 +21,8 @@ if [ ! -f "${PYTHON_CMD}" ]; then PYTHON_CMD="python3"; fi
 "${PYTHON_CMD}" -c "
 import sys
 from lablink.integration.api_client import LabLinkAPIClient
+from lablink.manufacturing.simulation import ManufacturingSimulationEngine
+from lablink.manufacturing.dut import DUT
 
 client = LabLinkAPIClient('${API_URL}')
 
@@ -28,38 +30,51 @@ client = LabLinkAPIClient('${API_URL}')
 h = client.health_check()
 print(f'[+] Containerized Health Status: {h}')
 assert h['status'] == 'Healthy'
-assert h['version'] == '0.9.0'
+assert h['version'] == '1.0.0'
 assert h['database'] == 'Connected'
 
-# 2. Create test case
-tc = client.create_test_case(name='docker_smoke_test_case', description='Docker containerized smoke test', suite='docker', category='smoke')
-print(f'[+] Created Test Case: {tc[\"id\"]}')
+# 2. Register DUT
+serial = 'SN-DOCKER-MFG-001'
+dut_dto = client.create_dut(serial, part_number='PN-OPT-100G', hardware_revision='RevB')
+print(f'[+] Registered DUT: {dut_dto[\"serialNumber\"]}')
 
-# 3. Create test run
-tr = client.create_test_run(name='docker_pipeline_run_01', trigger='DockerSmoke', environment='DockerCompose')
-run_id = tr['id']
-print(f'[+] Created Test Run: {run_id}')
+# 3. Execute Manufacturing Simulation
+engine = ManufacturingSimulationEngine(seed=42)
+seq = engine.build_optical_module_sequence()
+dut = DUT(serial_number=serial)
+exec_res = engine.executor.execute_sequence(dut, seq)
 
-# 4. Ingest passed test result
-res = client.submit_test_result(run_id, test_name='docker_step_passed', status='Passed', duration=0.18, test_case_id=tc['id'])
-print(f'[+] Ingested result {res[\"id\"]} for run {run_id}')
+# 4. Create Manufacturing Run
+run_dto = client.create_manufacturing_run(serial, station_id=exec_res.station_id, sequence_name=exec_res.sequence_name, sequence_version=exec_res.sequence_version)
+run_id = run_dto['id']
+print(f'[+] Created Manufacturing Run: {run_id}')
 
-# 5. Complete test run
-completed = client.complete_test_run(run_id, status='Completed')
-print(f'[+] Completed Test Run: {completed}')
-assert completed['status'] == 'Completed'
-assert completed['totalTests'] == 1
-assert completed['passedTests'] == 1
+# 5. Add Measurement Records
+for m in exec_res.all_measurements:
+    client.add_measurement(
+        run_id=run_id,
+        step_name=m.step_name,
+        measurement_name=m.measurement_name,
+        value=m.value,
+        unit=m.unit,
+        lower_limit=m.lower_limit,
+        upper_limit=m.upper_limit,
+        verdict=m.verdict.value,
+        failure_code=m.failure_code.value,
+        instrument_source=m.instrument_source,
+    )
 
-# 6. Retrieve test run and results
-retrieved_run = client.get_test_run(run_id)
-assert retrieved_run['totalTests'] == 1
+# 6. Complete Manufacturing Run
+completed = client.complete_manufacturing_run(run_id, verdict=exec_res.overall_verdict.value, failure_code=exec_res.failure_code.value)
+print(f'[+] Completed Manufacturing Run: {completed}')
+assert completed['verdict'] == 'Completed'
 
-results = client.get_test_results(run_id)
-assert len(results) == 1
-assert results[0]['testName'] == 'docker_step_passed'
+# 7. Query Yield Analytics
+yield_dto = client.get_yield_analytics()
+print(f'[+] Yield Analytics: {yield_dto}')
+assert yield_dto['totalUnitsTested'] >= 1
 
-print('[+] Containerized API Smoke & Persistence Test PASSED CLEANLY!')
+print('[+] Containerized API & Manufacturing Persistence Smoke Test PASSED CLEANLY!')
 "
 
 echo "[+] Docker stack integration verification succeeded!"
