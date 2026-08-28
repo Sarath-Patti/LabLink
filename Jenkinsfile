@@ -30,6 +30,7 @@ pipeline {
                 sh 'python3 --version'
                 sh 'dotnet --version'
                 sh 'bash --version'
+                sh 'docker compose version || docker --version'
             }
         }
 
@@ -66,18 +67,26 @@ pipeline {
             }
         }
 
-        stage('PostgreSQL & Migrations') {
+        stage('Docker Compose Validation & Build') {
             steps {
-                echo '=== Stage 7: PostgreSQL Startup & Database Migration ==='
+                echo '=== Stage 7: Docker Compose Config & Image Build ==='
+                sh 'docker compose -f docker/docker-compose.yml config'
+                sh 'docker compose -f docker/docker-compose.yml build'
+            }
+        }
+
+        stage('PostgreSQL Service') {
+            steps {
+                echo '=== Stage 8: PostgreSQL Service Startup & Readiness ==='
                 sh './scripts/start_postgres.sh'
                 sh './scripts/wait_for_postgres.sh'
                 sh './scripts/migrate_database.sh'
             }
         }
 
-        stage('API Integration & Smoke Test') {
+        stage('API Service & Smoke Test') {
             steps {
-                echo '=== Stage 8: API Service Startup & Integration Smoke Test ==='
+                echo '=== Stage 9: API Service Startup & Integration Smoke Test ==='
                 sh './scripts/start_api.sh'
                 sh './scripts/run_integration_tests.sh'
             }
@@ -85,7 +94,7 @@ pipeline {
 
         stage('Packaging & Artifacts') {
             steps {
-                echo '=== Stage 9: Archiving Test Artifacts and Logs ==='
+                echo '=== Stage 10: Archiving Test Artifacts and Logs ==='
                 archiveArtifacts artifacts: 'python_test_results.xml, api_ci.log', allowEmptyArchive: true
             }
         }

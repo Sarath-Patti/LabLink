@@ -80,7 +80,7 @@ def test_python_to_csharp_api_integration_workflow(api_server: str) -> None:
     # 1. Health status query
     health = client.health_check()
     assert health["status"] == "Healthy"
-    assert health["version"] == "0.8.0"
+    assert health["version"] == "0.9.0"
 
     # 2. Register Test Case
     tc = client.create_test_case(

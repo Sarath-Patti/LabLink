@@ -20,27 +20,45 @@ LabLink is a multi-tier network and laboratory instrument test automation platfo
    * **Role:** Automated quality verification and pipeline orchestration.
    * **Responsibility:** Declarative Jenkins pipeline and POSIX-compliant modular shell scripts executing static analysis, testing, PostgreSQL service startup, database migration, API startup, and end-to-end integration smoke testing.
 
+5. **Containerized Deployment Layer (`docker/` & `dotnet/LabLink.Api/Dockerfile`)**
+   * **Role:** Multi-service container orchestration and reproducible deployment.
+   * **Responsibility:** Multi-stage Dockerfile packaging `LabLink.Api` into a lightweight runtime image; Docker Compose orchestrating `postgres` and `lablink-api` with native health checks (`pg_isready`, `/api/v1/health`) and named persistent volume storage (`lablink-postgres-data`).
+
 ```
-                  +-----------------------------------+
-                  |      C# / ASP.NET Core API        |
-                  |     (Test Management & API)       |
-                  +-----------------+-----------------+
-                                    |
-                                    v
-                  +-----------------------------------+
-                  |     Python Automation Engine      |
-                  |   (Instrument Control & pytest)   |
-                  +-----------------+-----------------+
-                                    |
-        +---------------------------+---------------------------+
-        |                           |                           |
-        v                           v                           v
-+---------------+           +---------------+           +---------------+
-|  TCP/IP /     |           |   SCPI /      |           |   Layer-2     |
-| Serial RS232  |           |  Instrument   |           |   Ethernet    |
-| Transport     |           |  Protocols    |           |   Testing     |
-+---------------+           +---------------+           +---------------+
+                    Developer / Jenkins
+                           │
+                           ▼
+                    Docker Compose
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+              ▼                         ▼
+      ┌───────────────┐         ┌───────────────┐
+      │ LabLink API   │────────▶│ PostgreSQL    │
+      │ ASP.NET Core  │         │ Database      │
+      └───────────────┘         └───────────────┘
+              │                         │
+              │                         ▼
+              │                   Persistent
+              │                     Volume
+              │             (lablink-postgres-data)
+              ▼
+       Python Automation /
+       Integration Tests
 ```
+
+---
+
+## Milestone v0.9 Containerized Full-Stack Deployment Architecture
+
+### 1. Multi-Stage Docker Build (`dotnet/LabLink.Api/Dockerfile`)
+* **Stage 1 (SDK 8.0):** Compiles project, restores NuGet dependencies, publishes Release binaries.
+* **Stage 2 (ASP.NET 8.0 Runtime):** Minimal footprint runtime container exposing port `5099` with internal healthcheck (`curl http://localhost:5099/api/v1/health`).
+
+### 2. Multi-Service Orchestration (`docker/docker-compose.yml`)
+* **Service `postgres`**: `postgres:15-alpine` image with container healthcheck `pg_isready -U sarathpatti -d lablink_dev` and persistent named volume `lablink-postgres-data`.
+* **Service `lablink-api`**: Built from multi-stage Dockerfile, depends on `postgres: service_healthy`, environment-configured connection string `Host=postgres;Port=5432;Database=lablink_dev`.
+* **Host Access**: API port `5099` and PostgreSQL port `5432` mapped to host for pytest automation framework execution and local API testing.
 
 ---
 
@@ -77,30 +95,6 @@ Developer / Git Push
                       Artifacts & Log Cleanup
 ```
 
-### 1. Declarative Pipeline Stages (`Jenkinsfile`)
-- **Checkout:** Source code retrieval from Git SCM.
-- **Environment Validation:** Verifies system python, dotnet SDK, bash, and docker binaries.
-- **Setup Python Environment:** Isolated venv initialization via `./scripts/setup_python.sh`.
-- **Python Quality:** Runs `./scripts/run_python_quality.sh` (`ruff`, `black`, `mypy`).
-- **Python Tests:** Runs `./scripts/run_python_tests.sh` with JUnit XML report output.
-- **.NET Quality & Tests:** Runs `./scripts/run_dotnet_tests.sh` (`dotnet build`, `dotnet format`, `dotnet test`).
-- **PostgreSQL & Migrations:** Runs `./scripts/start_postgres.sh`, `./scripts/wait_for_postgres.sh`, and `./scripts/migrate_database.sh`.
-- **API Integration & Smoke Test:** Runs `./scripts/start_api.sh` and `./scripts/run_integration_tests.sh`.
-- **Packaging & Cleanup:** Archives JUnit XML test reports, TRX test files, and API log files. Post block executes `./scripts/cleanup.sh`.
-
-### 2. POSIX Shell Script Inventory (`scripts/`)
-- **`ci.sh`**: Master local CI runner executing all quality gates sequentially.
-- **`setup_python.sh`**: Environment initialization and package installation.
-- **`run_python_quality.sh`**: Linter and type checker execution.
-- **`run_python_tests.sh`**: Pytest test suite execution.
-- **`run_dotnet_tests.sh`**: .NET compilation, formatting, and unit testing.
-- **`start_postgres.sh`**: Docker container container startup.
-- **`wait_for_postgres.sh`**: PostgreSQL connection polling loop.
-- **`migrate_database.sh`**: EF Core migration application (`dotnet ef database update`).
-- **`start_api.sh`**: Background API process startup, PID recording (`.api.pid`), and health polling.
-- **`run_integration_tests.sh`**: Python ↔ C# REST API smoke workflow execution.
-- **`cleanup.sh`**: Background process termination and Docker service shutdown.
-
 ---
 
 ## Milestone v0.7 PostgreSQL Persistence Architecture
@@ -109,10 +103,6 @@ Developer / Git Push
 `LabLinkDbContext` manages relational persistence for test entities. `Program.cs` reads `Persistence:Provider` configuration:
 - `"PostgreSQL"`: Registers `LabLinkDbContext` with `options.UseNpgsql(...)` and scoped PostgreSQL repositories.
 - `"InMemory"`: Registers thread-safe in-memory repositories.
-
-### 2. Telemetry Protection & Relationships
-- `TestRun` 1 $\rightarrow$ * `TestResult`: Foreign key configured with `DeleteBehavior.Restrict` to protect historical test telemetry from accidental cascade deletion.
-- `Device.Metadata`: Values converted to JSON strings using `System.Text.Json` value converters.
 
 ---
 
@@ -123,21 +113,7 @@ $$\text{Python pytest / HTTP Client} \longrightarrow \text{REST Controllers} \lo
 
 ---
 
-## Milestone v0.5 Layer-2 Ethernet & Network Validation Architecture
-
-### 1. Subsystem Composition (`lablink.network`)
-$$\text{TrafficGenerator} \longrightarrow \text{EthernetFrame (MACAddress + VLANHeader)} \longrightarrow \text{TrafficSink} \longrightarrow \text{TrafficStatistics}$$
-
----
-
-## Milestone v0.3 Instrument & Simulator Subsystems
-
-### 1. Layered Interface Composition Pattern
-$$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longrightarrow \text{BaseTransport} \longrightarrow \text{TCP Simulator (127.0.0.1)}$$
-
----
-
-## Implementation Status (Milestone v0.8)
+## Implementation Status (Milestone v0.9)
 
 ### Implemented Functionality
 * [x] Abstract transport interface contract (`BaseTransport`) & client transports (`TCPTransport`, `SerialTransport`, `MockTransport`)
@@ -158,10 +134,11 @@ $$\text{Instrument / Device Driver} \longrightarrow \text{SCPI Protocol} \longri
 * [x] Python standard-library HTTP API client (`LabLinkAPIClient`) & Python ↔ C# REST API integration test suite
 * [x] PostgreSQL database persistence (`LabLinkDbContext`) & EF Core migrations (`InitialPostgresSchema`)
 * [x] PostgreSQL repositories (`PostgresTestCaseRepository`, `PostgresTestRunRepository`, etc.)
-* [x] Docker PostgreSQL service definition (`docker/docker-compose.yml`) & environment template (`.env.example`)
 * [x] Declarative Jenkins CI/CD pipeline (`Jenkinsfile`) & test report collection
 * [x] POSIX-compliant modular shell scripts (`scripts/*.sh`) & local CI master script (`scripts/ci.sh`)
-* [x] Hardware-free unit, integration, functional, regression, negative, performance, and CI/CD quality gate suites
+* [x] Multi-Stage Dockerfile (`dotnet/LabLink.Api/Dockerfile`) targeting lightweight ASP.NET 8.0 runtime image
+* [x] Multi-Service Docker Compose Stack (`docker/docker-compose.yml`) orchestrating `postgres` and `lablink-api` with health checks (`pg_isready`, `/api/v1/health`) and named persistent volume `lablink-postgres-data`
+* [x] Docker Management Suite (`./scripts/docker_up.sh`, `./scripts/docker_down.sh`, `./scripts/docker_migrate.sh`, `./scripts/docker_smoke_test.sh`)
 
 ### Deliberately Deferred Functionality (Future Milestones)
 * [ ] Physical optical equipment validation (No physical optical hardware attached)

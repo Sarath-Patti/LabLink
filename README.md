@@ -1,6 +1,6 @@
 # LabLink: Network & Instrument Test Automation Platform
 
-LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, software Layer-2 Ethernet validation, and automated test execution alongside a C#/.NET 8 ASP.NET Core service layer for test management, run orchestration, PostgreSQL data persistence, and a declarative Jenkins + Shell CI/CD pipeline.
+LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, software Layer-2 Ethernet validation, and automated test execution alongside a C#/.NET 8 ASP.NET Core service layer for test management, run orchestration, PostgreSQL data persistence, declarative Jenkins CI/CD automation, and multi-service Docker/Docker Compose containerization.
 
 ---
 
@@ -12,36 +12,29 @@ LabLink employs a decoupled multi-tiered architecture:
 * **C# / .NET Layer (`dotnet/LabLink.Api` & `dotnet/LabLink.Api.Tests`):** Service layer providing an ASP.NET Core Web API orchestration foundation, domain models (`TestCase`, `TestRun`, `TestResult`, `Device`, `Instrument`), DTOs, application services, thin REST controllers, exception middleware, OpenAPI/Swagger documentation, and xUnit test suite.
 * **Persistence Layer (`dotnet/LabLink.Api/Persistence`):** PostgreSQL Entity Framework Core 8.0 relational database persistence (`LabLinkDbContext`) supporting test run history, test results telemetry, device/instrument configuration, EF Core migrations (`InitialPostgresSchema`), and fallback thread-safe in-memory repositories.
 * **CI/CD Pipeline (`Jenkinsfile` & `scripts/`):** Reproducible declarative Jenkins CI/CD pipeline and POSIX-compliant modular shell scripts automating static quality checks, unit/functional testing, Docker PostgreSQL service management, EF Core migrations, background API startup, and end-to-end HTTP smoke integration tests.
+* **Containerized Deployment Layer (`docker/` & `dotnet/LabLink.Api/Dockerfile`):** Multi-stage Docker build producing lightweight ASP.NET 8.0 runtime images and Docker Compose multi-service orchestration (`postgres` + `lablink-api`) with native health checks (`pg_isready`, `/api/v1/health`) and named persistent volume data storage (`lablink-postgres-data`).
 
 ```
-Developer / Git Push
-        │
-        ▼
-   Jenkins CI/CD Pipeline (Jenkinsfile)
-        │
-        ├───────────────────────┐
-        ▼                       ▼
- Python Quality Gate     .NET Build & xUnit
- (Ruff, Black, Mypy)     (dotnet build/format/test)
-        │                       │
-        └───────────┬───────────┘
-                    ▼
-          PostgreSQL Docker Service
-                    │
-                    ▼
-            EF Core Migration
-                    │
-                    ▼
-          PostgreSQL Integration
-                    │
-                    ▼
-           REST API Startup
-                    │
-                    ▼
-       Python API Smoke Test
-                    │
-                    ▼
-       Artifacts & Log Cleanup
+                    Developer / Jenkins
+                           │
+                           ▼
+                    Docker Compose
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+              ▼                         ▼
+      ┌───────────────┐         ┌───────────────┐
+      │ LabLink API   │────────▶│ PostgreSQL    │
+      │ ASP.NET Core  │         │ Database      │
+      └───────────────┘         └───────────────┘
+              │                         │
+              │                         ▼
+              │                   Persistent
+              │                     Volume
+              │             (lablink-postgres-data)
+              ▼
+       Python Automation /
+       Integration Tests
 ```
 
 ---
@@ -54,7 +47,7 @@ Developer / Git Push
 * **Service API:** C# / .NET 8.0 ASP.NET Core Web API with OpenAPI/Swagger
 * **API Test Framework:** xUnit, Microsoft.AspNetCore.Mvc.Testing WebApplicationFactory
 * **ORM & Database:** Entity Framework Core 8.0, PostgreSQL 15 (`Npgsql.EntityFrameworkCore.PostgreSQL`)
-* **Containers & Orchestration:** Docker Compose (`docker/docker-compose.yml`), PostgreSQL Alpine container
+* **Containers & Orchestration:** Multi-stage Dockerfile, Docker Compose (`docker/docker-compose.yml`), PostgreSQL Alpine container, persistent named volume
 * **CI/CD & Shell Automation:** Jenkins Declarative Pipeline (`Jenkinsfile`), POSIX Bash (`scripts/`)
 
 ---
@@ -64,6 +57,7 @@ Developer / Git Push
 ```
 LabLink/
 ├── Jenkinsfile              # Declarative Jenkins CI/CD pipeline definition
+├── .dockerignore            # Docker image build ignore rules
 ├── .env.example             # Safe environment variable configuration template
 ├── python/
 │   ├── lablink/
@@ -87,12 +81,18 @@ LabLink/
 │       └── utilities/       # Custom assertions, timing helpers, JSON result exporter
 │
 ├── dotnet/
-│   ├── LabLink.Api/         # ASP.NET Core Web API (Controllers, Services, Domain, Repositories, Persistence, Migrations)
+│   ├── LabLink.Api/         # ASP.NET Core Web API (Dockerfile, Controllers, Services, Domain, Repositories, Persistence, Migrations)
 │   └── LabLink.Api.Tests/   # Automated xUnit WebApplicationFactory & PostgreSQL integration test suite
 │
-├── docker/                  # Docker Compose PostgreSQL service definition
-├── scripts/                 # Modular CI/CD shell scripts
+├── docker/
+│   └── docker-compose.yml   # Multi-service Docker Compose orchestration (postgres + lablink-api)
+│
+├── scripts/                 # Modular CI/CD & Docker management shell scripts
 │   ├── ci.sh                # Master local CI reproduction script
+│   ├── docker_up.sh         # Docker Compose image build, stack startup & health polling
+│   ├── docker_down.sh       # Docker Compose stack clean shutdown (preserves volume)
+│   ├── docker_migrate.sh    # EF Core database migration against containerized PostgreSQL
+│   ├── docker_smoke_test.sh # Containerized REST API smoke & persistence test
 │   ├── setup_python.sh      # Python virtual environment setup
 │   ├── run_python_quality.sh# Ruff, Black, and Mypy static quality checks
 │   ├── run_python_tests.sh  # Pytest suite with JUnit XML generation
@@ -114,7 +114,7 @@ LabLink/
 
 ## Current Milestone Status
 
-**Current Milestone:** `v0.8: Jenkins + Shell CI/CD & Automated Quality Pipeline`
+**Current Milestone:** `v0.9: Containerized Full-Stack Deployment & Reproducible Environment`
 
 ### Implemented Functionality
 * [x] **Repository Foundation (v0.1):** Python package, `.gitignore`, pytest setup, C# ASP.NET Core health service.
@@ -143,13 +143,45 @@ LabLink/
 * [x] **PostgreSQL Integration Test Suite (v0.7):** xUnit `PostgresRepositoryIntegrationTests` verifying migrations, relational integrity, JSON metadata, and restart persistence.
 * [x] **Declarative Jenkins Pipeline (v0.8):** Root `Jenkinsfile` orchestrating automated quality stages, test report collection, and post-build cleanup.
 * [x] **Modular CI/CD Shell Scripts (v0.8):** POSIX-compliant bash scripts under `scripts/` (`setup_python.sh`, `start_postgres.sh`, `wait_for_postgres.sh`, `migrate_database.sh`, `start_api.sh`, `run_python_quality.sh`, `run_python_tests.sh`, `run_dotnet_tests.sh`, `run_integration_tests.sh`, `cleanup.sh`, `ci.sh`).
-* [x] **Local CI Master Script (v0.8):** `./scripts/ci.sh` for reproducing the full Jenkins pipeline locally in a single command.
+* [x] **Multi-Stage Dockerfile (v0.9):** `dotnet/LabLink.Api/Dockerfile` targeting lightweight ASP.NET 8.0 runtime image with internal health check.
+* [x] **Multi-Service Docker Compose Stack (v0.9):** `docker/docker-compose.yml` orchestrating `postgres` and `lablink-api` with health checks (`pg_isready`, `/api/v1/health`) and named persistent volume `lablink-postgres-data`.
+* [x] **Docker Management Suite (v0.9):** `./scripts/docker_up.sh`, `./scripts/docker_down.sh`, `./scripts/docker_migrate.sh`, and `./scripts/docker_smoke_test.sh`.
+
+---
+
+## How to Run Containerized Full-Stack Environment
+
+### 1. Build & Start Docker Stack
+```bash
+./scripts/docker_up.sh
+```
+
+### 2. Apply EF Core Migrations to Containerized PostgreSQL
+```bash
+./scripts/docker_migrate.sh
+```
+
+### 3. Run Containerized REST API & Persistence Smoke Test
+```bash
+./scripts/docker_smoke_test.sh
+```
+
+### 4. Inspect Container Logs
+```bash
+docker compose -f docker/docker-compose.yml logs -f lablink-api
+docker compose -f docker/docker-compose.yml logs -f postgres
+```
+
+### 5. Stop Docker Stack (Preserves Persistent Volume Data)
+```bash
+./scripts/docker_down.sh
+```
 
 ---
 
 ## How to Run Local CI Pipeline
 
-Run the local master CI script to execute the complete pipeline locally:
+Run the master local CI script to execute all quality gates locally:
 
 ```bash
 ./scripts/ci.sh
@@ -157,42 +189,9 @@ Run the local master CI script to execute the complete pipeline locally:
 
 ---
 
-## How to Run Individual Quality Gates
-
-### Python Static Quality Checks
-```bash
-./scripts/run_python_quality.sh
-```
-
-### Python Pytest Automation Framework
-```bash
-./scripts/run_python_tests.sh
-```
-
-### C# .NET Build, Formatting & xUnit Tests
-```bash
-./scripts/run_dotnet_tests.sh
-```
-
-### PostgreSQL Database & EF Core Migrations
-```bash
-./scripts/start_postgres.sh
-./scripts/wait_for_postgres.sh
-./scripts/migrate_database.sh
-```
-
-### API Service & Integration Smoke Test
-```bash
-./scripts/start_api.sh
-./scripts/run_integration_tests.sh
-./scripts/cleanup.sh
-```
-
----
-
 ## Maintenance & Cleanup
 
-To remove background API processes, stop Docker containers, and clean temporary log files:
+To stop containers, remove background processes, and clean build caches:
 
 ```bash
 ./scripts/cleanup.sh

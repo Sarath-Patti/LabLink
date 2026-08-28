@@ -35,19 +35,25 @@ echo "=== Stage 4: .NET Build & Quality Gates ==="
 "${SCRIPT_DIR}/run_dotnet_tests.sh"
 echo ""
 
-# Stage 5: Start PostgreSQL Service
-echo "=== Stage 5: Start PostgreSQL Service ==="
+# Stage 5: Docker Compose Config Validation
+echo "=== Stage 5: Docker Compose Config Validation ==="
+docker compose -f "${PROJECT_ROOT}/docker/docker-compose.yml" config >/dev/null
+echo "[+] Docker Compose configuration validated successfully."
+echo ""
+
+# Stage 6: Start PostgreSQL Service
+echo "=== Stage 6: Start PostgreSQL Service ==="
 "${SCRIPT_DIR}/start_postgres.sh"
 "${SCRIPT_DIR}/wait_for_postgres.sh"
 echo ""
 
-# Stage 6: Database Migrations
-echo "=== Stage 6: Database Migrations ==="
+# Stage 7: Database Migrations
+echo "=== Stage 7: Database Migrations ==="
 "${SCRIPT_DIR}/migrate_database.sh"
 echo ""
 
-# Stage 7: Start REST API & Integration Smoke Test
-echo "=== Stage 7: Start REST API & Smoke Verification ==="
+# Stage 8: Start REST API & Integration Smoke Test
+echo "=== Stage 8: Start REST API & Smoke Verification ==="
 "${SCRIPT_DIR}/start_api.sh"
 "${SCRIPT_DIR}/run_integration_tests.sh"
 echo ""

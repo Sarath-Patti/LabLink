@@ -1,4 +1,4 @@
-version: '3.8'
+name: lablink
 
 services:
   postgres:
@@ -7,17 +7,36 @@ services:
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-lablink_dev}
-      POSTGRES_USER: ${POSTGRES_USER:-lablink_user}
+      POSTGRES_USER: ${POSTGRES_USER:-sarathpatti}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lablink_pass}
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "${LABLINK_DB_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - lablink-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lablink_user} -d ${POSTGRES_DB:-lablink_dev}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sarathpatti} -d ${POSTGRES_DB:-lablink_dev}"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 5s
+
+  lablink-api:
+    build:
+      context: ..
+      dockerfile: dotnet/LabLink.Api/Dockerfile
+    image: lablink-api:0.9.0
+    container_name: lablink_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      Persistence__Provider: PostgreSQL
+      ConnectionStrings__LabLinkDatabase: Host=postgres;Port=5432;Database=${POSTGRES_DB:-lablink_dev};Username=${POSTGRES_USER:-sarathpatti};Password=${POSTGRES_PASSWORD:-lablink_pass}
+    ports:
+      - "${LABLINK_API_PORT:-5099}:5099"
 
 volumes:
-  postgres_data:
+  lablink-postgres-data:
