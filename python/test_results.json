@@ -9,7 +9,7 @@
     "expected": -10.0,
     "actual": -10.0,
     "unit": "dBm",
-    "timestamp": "2026-08-28T03:17:17.337685+00:00"
+    "timestamp": "2026-08-28T03:53:04.503256+00:00"
   },
   {
     "test_name": "automated_optical_test_bench_regression",
@@ -21,7 +21,7 @@
     "expected": -10.0,
     "actual": -10.0,
     "unit": "dBm",
-    "timestamp": "2026-08-28T03:17:17.337950+00:00"
+    "timestamp": "2026-08-28T03:53:04.503494+00:00"
   },
   {
     "test_name": "automated_optical_test_bench_regression",
@@ -33,6 +33,6 @@
     "expected": -10.0,
     "actual": -10.0,
     "unit": "dBm",
-    "timestamp": "2026-08-28T03:17:17.338171+00:00"
+    "timestamp": "2026-08-28T03:53:04.503694+00:00"
   }
 ]

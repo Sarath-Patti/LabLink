@@ -25,6 +25,6 @@ public class HealthApiTests : IClassFixture<WebApplicationFactory<Program>>
         var doc = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Healthy", doc.GetProperty("status").GetString());
         Assert.Equal("LabLink.Api", doc.GetProperty("service").GetString());
-        Assert.Equal("0.7.0", doc.GetProperty("version").GetString());
+        Assert.Equal("0.8.0", doc.GetProperty("version").GetString());
     }
 }

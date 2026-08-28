@@ -40,7 +40,7 @@ public class HealthController : ControllerBase
         {
             status = "Healthy",
             service = "LabLink.Api",
-            version = "0.7.0",
+            version = "0.8.0",
             database = dbStatus,
             timestamp = DateTime.UtcNow
         });

@@ -37,6 +37,8 @@ htmlcov/
 .ruff_cache/
 nosetests.xml
 coverage.xml
+python_test_results.xml
+*.trx
 *.cover
 *.py,cover
 
@@ -50,6 +52,11 @@ out/
 *.sln.docstates
 *.userprefs
 *.suo
+
+# CI / CD Artifacts & Logs
+api_ci.log
+scripts/.api.pid
+artifacts/
 
 # Configuration & Secrets
 .env

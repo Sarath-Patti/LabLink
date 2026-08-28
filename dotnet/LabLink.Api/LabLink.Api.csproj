@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>LabLink.Api</RootNamespace>
     <AssemblyName>LabLink.Api</AssemblyName>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <Description>LabLink Test Management &amp; Service Layer API Foundation</Description>
   </PropertyGroup>
 

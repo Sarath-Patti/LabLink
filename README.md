@@ -1,6 +1,6 @@
 # LabLink: Network & Instrument Test Automation Platform
 
-LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, software Layer-2 Ethernet validation, and automated test execution alongside a C#/.NET 8 ASP.NET Core service layer for test management, run orchestration, and result ingestion.
+LabLink is an extensible, multi-tier network and laboratory instrument test automation platform. It provides Python-based instrument control, networking transport abstractions, software Layer-2 Ethernet validation, and automated test execution alongside a C#/.NET 8 ASP.NET Core service layer for test management, run orchestration, PostgreSQL data persistence, and a declarative Jenkins + Shell CI/CD pipeline.
 
 ---
 
@@ -10,30 +10,38 @@ LabLink employs a decoupled multi-tiered architecture:
 
 * **Python Layer (`python/`):** Primary engine for test automation, physical/network transport handling (TCP/IP, Serial RS-232, Mock), SCPI protocol parsing, VISA-style resource management, instrument abstractions, optical equipment simulators, Layer-2 Ethernet frame modeling, 802.1Q VLAN tagging, software traffic generation/analysis, standard-library HTTP integration client (`LabLinkAPIClient`), and pytest-based test automation framework.
 * **C# / .NET Layer (`dotnet/LabLink.Api` & `dotnet/LabLink.Api.Tests`):** Service layer providing an ASP.NET Core Web API orchestration foundation, domain models (`TestCase`, `TestRun`, `TestResult`, `Device`, `Instrument`), DTOs, application services, thin REST controllers, exception middleware, OpenAPI/Swagger documentation, and xUnit test suite.
-* **In-Memory Storage (v0.6):** Thread-safe in-memory repositories (`ConcurrentDictionary`) managing transient test runs, results, and device metadata.
-* **Persistence Layer (Planned - v0.7):** PostgreSQL database integration for historical test logs, device telemetry, and run results.
-* **Infrastructure (Planned):** Docker-based integration environments and Jenkins CI/CD automation pipelines.
+* **Persistence Layer (`dotnet/LabLink.Api/Persistence`):** PostgreSQL Entity Framework Core 8.0 relational database persistence (`LabLinkDbContext`) supporting test run history, test results telemetry, device/instrument configuration, EF Core migrations (`InitialPostgresSchema`), and fallback thread-safe in-memory repositories.
+* **CI/CD Pipeline (`Jenkinsfile` & `scripts/`):** Reproducible declarative Jenkins CI/CD pipeline and POSIX-compliant modular shell scripts automating static quality checks, unit/functional testing, Docker PostgreSQL service management, EF Core migrations, background API startup, and end-to-end HTTP smoke integration tests.
 
 ```
-                  +-----------------------------------+
-                  |      C# / ASP.NET Core API        |
-                  |     (Test Management & API)       |
-                  +-----------------+-----------------+
-                                    |
-                                    v
-                  +-----------------------------------+
-                  |     Python Automation Engine      |
-                  |   (Instrument Control & pytest)   |
-                  +-----------------+-----------------+
-                                    |
-        +---------------------------+---------------------------+
-        |                           |                           |
-        v                           v                           v
-+---------------+           +---------------+           +---------------+
-|  TCP/IP /     |           |   SCPI /      |           |   Layer-2     |
-| Serial RS232  |           |  Instrument   |           |   Ethernet    |
-| Transport     |           |  Protocols    |           |   Testing     |
-+---------------+           +---------------+           +---------------+
+Developer / Git Push
+        │
+        ▼
+   Jenkins CI/CD Pipeline (Jenkinsfile)
+        │
+        ├───────────────────────┐
+        ▼                       ▼
+ Python Quality Gate     .NET Build & xUnit
+ (Ruff, Black, Mypy)     (dotnet build/format/test)
+        │                       │
+        └───────────┬───────────┘
+                    ▼
+          PostgreSQL Docker Service
+                    │
+                    ▼
+            EF Core Migration
+                    │
+                    ▼
+          PostgreSQL Integration
+                    │
+                    ▼
+           REST API Startup
+                    │
+                    ▼
+       Python API Smoke Test
+                    │
+                    ▼
+       Artifacts & Log Cleanup
 ```
 
 ---
@@ -41,13 +49,13 @@ LabLink employs a decoupled multi-tiered architecture:
 ## Technology Stack
 
 * **Automation & Drivers:** Python 3.11
-* **Test Framework:** pytest (with markers, fixtures, custom assertions, and JSON telemetry export)
+* **Test Framework:** pytest (with markers, fixtures, custom assertions, JUnit XML output, and JSON telemetry export)
 * **Networking & Layer-2 Validation:** Software EthernetFrame, MACAddress, 802.1Q VLANHeader, TrafficGenerator, TrafficSink, TrafficStatistics
 * **Service API:** C# / .NET 8.0 ASP.NET Core Web API with OpenAPI/Swagger
 * **API Test Framework:** xUnit, Microsoft.AspNetCore.Mvc.Testing WebApplicationFactory
-* **Instruments & Simulators:** Optical Power Meter, Optical Switch, Optical Oscilloscope, Network Switch Control
-* **Persistence (v0.6):** In-Memory Repositories (PostgreSQL deferred to v0.7)
-* **CI/CD & Containers (Planned):** Docker, Jenkins
+* **ORM & Database:** Entity Framework Core 8.0, PostgreSQL 15 (`Npgsql.EntityFrameworkCore.PostgreSQL`)
+* **Containers & Orchestration:** Docker Compose (`docker/docker-compose.yml`), PostgreSQL Alpine container
+* **CI/CD & Shell Automation:** Jenkins Declarative Pipeline (`Jenkinsfile`), POSIX Bash (`scripts/`)
 
 ---
 
@@ -55,6 +63,8 @@ LabLink employs a decoupled multi-tiered architecture:
 
 ```
 LabLink/
+├── Jenkinsfile              # Declarative Jenkins CI/CD pipeline definition
+├── .env.example             # Safe environment variable configuration template
 ├── python/
 │   ├── lablink/
 │   │   ├── config/          # Environment-aware settings & config management
@@ -77,22 +87,34 @@ LabLink/
 │       └── utilities/       # Custom assertions, timing helpers, JSON result exporter
 │
 ├── dotnet/
-│   ├── LabLink.Api/         # ASP.NET Core Web API (Controllers, Services, Domain, Repositories, Middleware)
-│   └── LabLink.Api.Tests/   # Automated xUnit WebApplicationFactory test suite
+│   ├── LabLink.Api/         # ASP.NET Core Web API (Controllers, Services, Domain, Repositories, Persistence, Migrations)
+│   └── LabLink.Api.Tests/   # Automated xUnit WebApplicationFactory & PostgreSQL integration test suite
+│
+├── docker/                  # Docker Compose PostgreSQL service definition
+├── scripts/                 # Modular CI/CD shell scripts
+│   ├── ci.sh                # Master local CI reproduction script
+│   ├── setup_python.sh      # Python virtual environment setup
+│   ├── run_python_quality.sh# Ruff, Black, and Mypy static quality checks
+│   ├── run_python_tests.sh  # Pytest suite with JUnit XML generation
+│   ├── run_dotnet_tests.sh  # .NET restore, build, format verify, and xUnit execution
+│   ├── start_postgres.sh    # Docker PostgreSQL container startup
+│   ├── wait_for_postgres.sh # PostgreSQL readiness polling
+│   ├── migrate_database.sh  # EF Core database migration application
+│   ├── start_api.sh         # Background API server startup and health polling
+│   ├── run_integration_tests.sh # REST API smoke workflow execution
+│   └── cleanup.sh           # API process termination and container cleanup
 │
 ├── config/                  # Safe configuration templates (.json, .env)
 ├── docs/                    # Architectural & design documentation
-├── scripts/                 # Development lifecycle scripts (setup, test, clean)
 ├── ethernet/                # Layer-2 Ethernet test components
-├── docker/                  # Docker containerization (Milestone v0.8)
-└── jenkins/                 # Jenkins CI/CD pipelines (Milestone v0.8)
+└── jenkins/                 # Jenkins CI/CD configuration files
 ```
 
 ---
 
 ## Current Milestone Status
 
-**Current Milestone:** `v0.6: C#/.NET Test Management & Orchestration`
+**Current Milestone:** `v0.8: Jenkins + Shell CI/CD & Automated Quality Pipeline`
 
 ### Implemented Functionality
 * [x] **Repository Foundation (v0.1):** Python package, `.gitignore`, pytest setup, C# ASP.NET Core health service.
@@ -111,99 +133,67 @@ LabLink/
 * [x] **Software Traffic Generator & Sink (v0.5):** `TrafficGenerator` and `TrafficSink` with `TrafficStatistics` telemetry.
 * [x] **Pytest Framework & Markers (v0.4/v0.5):** Registered `l2`, `functional`, `regression`, `negative`, `performance`, `instrument`, `simulator`, `integration` markers.
 * [x] **C# ASP.NET Core Test Orchestration API (v0.6):** Domain models (`TestCase`, `TestRun`, `TestResult`, `Device`, `Instrument`), DTOs, application services, thin REST controllers.
-* [x] **In-Memory Repositories (v0.6):** Thread-safe in-memory repositories managing test runs, test cases, test results, devices, and instruments.
 * [x] **Test Run Lifecycle & Ingestion (v0.6):** Lifecycle state machine (`Created` -> `Running` -> `Completed`) with automatic result aggregation metrics calculation.
 * [x] **API Error Middleware & OpenAPI (v0.6):** `ApiExceptionMiddleware` mapping domain exceptions to structured JSON errors (`400`, `404`, `409`, `500`) and Swagger UI.
 * [x] **C# xUnit API Test Suite (v0.6):** `LabLink.Api.Tests` using `WebApplicationFactory` covering health, test case, test run lifecycle, result ingestion, device, and instrument endpoints.
 * [x] **Python ↔ C# HTTP Integration Client & Test (v0.6):** `LabLinkAPIClient` standard library client and `test_api_integration.py` workflow test.
-
-### Explicitly Deferred / Planned Functionality
-* [ ] PostgreSQL database persistence & schema migrations — *Milestone v0.7*
-* [ ] Physical optical equipment validation (No physical optical hardware attached)
-* [ ] NI-VISA native binary C-driver bindings (VISA-style software abstraction implemented)
-* [ ] IXIA hardware generator integration (Deferred)
-* [ ] Kernel-bypass networking / DPDK drivers (Deferred)
-* [ ] Docker environment & Jenkins CI/CD automation — *Milestone v0.8*
-
----
-
-## How to Set Up the Environment
-
-### Python Environment
-1. Navigate to the `python` directory or use the provided setup script:
-   ```bash
-   ./scripts/setup.sh
-   ```
-2. Activate the virtual environment:
-   ```bash
-   source python/.venv/bin/activate
-   ```
-3. Install development dependencies in editable mode:
-   ```bash
-   pip install -e "python/[dev]"
-   ```
-
-### .NET Environment
-1. Ensure .NET 8.0 SDK is installed.
-2. Build the C# solution/projects:
-   ```bash
-   cd dotnet/LabLink.Api
-   dotnet build
-   ```
+* [x] **PostgreSQL Database Persistence (v0.7):** `LabLinkDbContext` with EF Core 8.0 relational tables, indexes, and JSON dictionary metadata conversion.
+* [x] **PostgreSQL Repositories (v0.7):** `PostgresTestCaseRepository`, `PostgresTestRunRepository`, `PostgresTestResultRepository`, `PostgresDeviceRepository`, `PostgresInstrumentRepository` with DI provider switching.
+* [x] **Docker PostgreSQL Service (v0.7):** `docker/docker-compose.yml` (`postgres:15-alpine`) with persistent volume.
+* [x] **PostgreSQL Integration Test Suite (v0.7):** xUnit `PostgresRepositoryIntegrationTests` verifying migrations, relational integrity, JSON metadata, and restart persistence.
+* [x] **Declarative Jenkins Pipeline (v0.8):** Root `Jenkinsfile` orchestrating automated quality stages, test report collection, and post-build cleanup.
+* [x] **Modular CI/CD Shell Scripts (v0.8):** POSIX-compliant bash scripts under `scripts/` (`setup_python.sh`, `start_postgres.sh`, `wait_for_postgres.sh`, `migrate_database.sh`, `start_api.sh`, `run_python_quality.sh`, `run_python_tests.sh`, `run_dotnet_tests.sh`, `run_integration_tests.sh`, `cleanup.sh`, `ci.sh`).
+* [x] **Local CI Master Script (v0.8):** `./scripts/ci.sh` for reproducing the full Jenkins pipeline locally in a single command.
 
 ---
 
-## How to Run Verification Suites
+## How to Run Local CI Pipeline
+
+Run the local master CI script to execute the complete pipeline locally:
+
+```bash
+./scripts/ci.sh
+```
+
+---
+
+## How to Run Individual Quality Gates
+
+### Python Static Quality Checks
+```bash
+./scripts/run_python_quality.sh
+```
 
 ### Python Pytest Automation Framework
 ```bash
-cd python
-
-# Run entire test suite
-pytest -v
-
-# Run selective marker suites
-pytest -m l2 -v
-pytest -m functional -v
-pytest -m regression -v
-pytest -m negative -v
-pytest -m performance -v
-pytest -m integration -v
+./scripts/run_python_tests.sh
 ```
 
-### C# .NET Automated xUnit Test Suite
+### C# .NET Build, Formatting & xUnit Tests
 ```bash
-cd dotnet/LabLink.Api.Tests
-dotnet test
+./scripts/run_dotnet_tests.sh
 ```
 
-### .NET Formatting Verification
+### PostgreSQL Database & EF Core Migrations
 ```bash
-cd dotnet/LabLink.Api
-dotnet format --verify-no-changes
+./scripts/start_postgres.sh
+./scripts/wait_for_postgres.sh
+./scripts/migrate_database.sh
 ```
 
----
-
-## How to Start the C# ASP.NET Core API
-
-1. Navigate to the API project directory:
-   ```bash
-   cd dotnet/LabLink.Api
-   ```
-2. Run the Web API application:
-   ```bash
-   dotnet run
-   ```
-3. Access the health status endpoint at `http://localhost:5000/api/v1/health`.
-4. Access Swagger UI documentation at `http://localhost:5000/swagger`.
+### API Service & Integration Smoke Test
+```bash
+./scripts/start_api.sh
+./scripts/run_integration_tests.sh
+./scripts/cleanup.sh
+```
 
 ---
 
 ## Maintenance & Cleanup
 
-To remove temporary build output, Python byte-code caches, and .NET compilation artifacts:
+To remove background API processes, stop Docker containers, and clean temporary log files:
 
 ```bash
-./scripts/clean.sh
+./scripts/cleanup.sh
 ```

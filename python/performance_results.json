@@ -3,12 +3,12 @@
     "test_name": "scpi_query_latency_performance",
     "category": "performance",
     "status": "PASS",
-    "duration_ms": 0.06514306672518917,
+    "duration_ms": 0.06052636672393419,
     "instrument": "OpticalPowerMeter",
     "measurement_name": "avg_scpi_query_latency",
     "expected": 50.0,
-    "actual": 0.06514306672518917,
+    "actual": 0.06052636672393419,
     "unit": "ms",
-    "timestamp": "2026-08-28T03:17:15.605511+00:00"
+    "timestamp": "2026-08-28T03:53:02.774444+00:00"
   }
 ]
