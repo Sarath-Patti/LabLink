@@ -1,7 +1,10 @@
 using System.Text.Json.Serialization;
 using LabLink.Api.Middleware;
+using LabLink.Api.Persistence;
 using LabLink.Api.Repositories;
+using LabLink.Api.Repositories.Postgres;
 using LabLink.Api.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,19 +26,38 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Register In-Memory Repositories (Singleton for persistent in-memory session state across requests)
-builder.Services.AddSingleton<ITestCaseRepository, InMemoryTestCaseRepository>();
-builder.Services.AddSingleton<ITestRunRepository, InMemoryTestRunRepository>();
-builder.Services.AddSingleton<ITestResultRepository, InMemoryTestResultRepository>();
-builder.Services.AddSingleton<IDeviceRepository, InMemoryDeviceRepository>();
-builder.Services.AddSingleton<IInstrumentRepository, InMemoryInstrumentRepository>();
+// Configure Persistence Provider based on AppSettings
+var persistenceProvider = builder.Configuration["Persistence:Provider"] ?? "PostgreSQL";
+var connectionString = builder.Configuration.GetConnectionString("LabLinkDatabase");
 
-// Register Application Services
-builder.Services.AddSingleton<TestCaseService>();
-builder.Services.AddSingleton<TestRunService>();
-builder.Services.AddSingleton<TestResultService>();
-builder.Services.AddSingleton<DeviceService>();
-builder.Services.AddSingleton<InstrumentService>();
+if (persistenceProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddDbContext<LabLinkDbContext>(options =>
+    {
+        options.UseNpgsql(connectionString);
+    });
+
+    builder.Services.AddScoped<ITestCaseRepository, PostgresTestCaseRepository>();
+    builder.Services.AddScoped<ITestRunRepository, PostgresTestRunRepository>();
+    builder.Services.AddScoped<ITestResultRepository, PostgresTestResultRepository>();
+    builder.Services.AddScoped<IDeviceRepository, PostgresDeviceRepository>();
+    builder.Services.AddScoped<IInstrumentRepository, PostgresInstrumentRepository>();
+}
+else
+{
+    builder.Services.AddSingleton<ITestCaseRepository, InMemoryTestCaseRepository>();
+    builder.Services.AddSingleton<ITestRunRepository, InMemoryTestRunRepository>();
+    builder.Services.AddSingleton<ITestResultRepository, InMemoryTestResultRepository>();
+    builder.Services.AddSingleton<IDeviceRepository, InMemoryDeviceRepository>();
+    builder.Services.AddSingleton<IInstrumentRepository, InMemoryInstrumentRepository>();
+}
+
+// Register Application Services (Scoped for compatibility with DbContext)
+builder.Services.AddScoped<TestCaseService>();
+builder.Services.AddScoped<TestRunService>();
+builder.Services.AddScoped<TestResultService>();
+builder.Services.AddScoped<DeviceService>();
+builder.Services.AddScoped<InstrumentService>();
 
 var app = builder.Build();
 

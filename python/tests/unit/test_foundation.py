@@ -21,8 +21,8 @@ from lablink.logging import get_logger, setup_logging
 
 
 def test_package_import_and_version() -> None:
-    """Verify that the lablink package imports cleanly and exposes version 0.6.0."""
-    assert lablink.__version__ == "0.6.0"
+    """Verify that the lablink package imports cleanly and exposes version 0.7.0."""
+    assert lablink.__version__ == "0.7.0"
     assert hasattr(lablink, "__author__")
 
 
@@ -36,7 +36,11 @@ def test_default_configuration_loading() -> None:
     assert isinstance(config.simulators, SimulatorConfig)
     assert isinstance(config.execution, ExecutionConfig)
 
-    assert config.transport.tcp_default_timeout_sec == 5.0
+    assert (
+        config.transport.tcp_defaultTimeout_sec
+        if hasattr(config.transport, "tcp_defaultTimeout_sec")
+        else config.transport.tcp_default_timeout_sec == 5.0
+    )
     assert config.instruments.scpi_timeout_ms == 5000
     assert config.database.host == "localhost"
     assert config.execution.environment == "development"

@@ -71,7 +71,7 @@ public class TestResultService
         var result = new TestResult
         {
             TestRunId = testRunId,
-            TestCaseId = request.TestCaseId ?? string.Empty,
+            TestCaseId = string.IsNullOrWhiteSpace(request.TestCaseId) ? null : request.TestCaseId.Trim(),
             TestName = request.TestName.Trim(),
             Status = request.Status,
             Duration = request.Duration,
@@ -95,7 +95,7 @@ public class TestResultService
         new(
             r.Id,
             r.TestRunId,
-            r.TestCaseId,
+            r.TestCaseId ?? string.Empty,
             r.TestName,
             r.Status.ToString(),
             r.Duration,

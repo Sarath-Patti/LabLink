@@ -9,7 +9,7 @@ public class TestResult
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string TestRunId { get; set; } = string.Empty;
-    public string TestCaseId { get; set; } = string.Empty;
+    public string? TestCaseId { get; set; }
     public string TestName { get; set; } = string.Empty;
     public TestStatus Status { get; set; } = TestStatus.Pending;
     public double Duration { get; set; }
